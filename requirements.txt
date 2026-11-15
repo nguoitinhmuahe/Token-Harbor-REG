@@ -1,0 +1,4 @@
+camoufox[geoip]>=0.5.9
+playwright>=1.62
+requests>=2.32
+urllib3>=2.0
