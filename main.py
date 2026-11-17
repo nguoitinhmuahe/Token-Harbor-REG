@@ -101,15 +101,20 @@ class _Progress:
         sec = int(max(0.0, sec))
         return f"{sec // 60:02d}:{sec % 60:02d}"
 
+    def _rate(self, el: float, settle: float = 10.0) -> float:
+        if el < settle or not self.done:
+            return 0.0
+        return self.done / el * 3600.0
+
     def line(self) -> str:
         el = time.monotonic() - self.t0
-        rate = self.done / el * 60 if el >= 10 else 0.0
+        rate = self._rate(el)
         left = self.total - self.done
-        eta = left / rate * 60 if rate > 0 else 0.0
+        eta = left * 3600.0 / rate if rate > 0 else 0.0
         return (f"{self._bar()} {self.done}/{self.total} "
                 f"ok {self.ok} fail {self.fail} run {self.run} | "
                 f"{self.region} | {self.mmss(el)} eta {self.mmss(eta)} | "
-                f"{rate:.1f}/ph")
+                f"{rate:.1f}/h")
 
     def _write(self, s: str) -> None:
         try:
@@ -148,15 +153,25 @@ class _Progress:
             self.reasons[key] = self.reasons.get(key, 0) + 1
         self.draw()
 
+    def requeue(self, status: str = "") -> None:
+        self.done = max(0, self.done - 1)
+        self.fail = max(0, self.fail - 1)
+        key = (status or "unknown").split(":")[0].strip()
+        if self.reasons.get(key):
+            self.reasons[key] -= 1
+            if not self.reasons[key]:
+                del self.reasons[key]
+        self.draw()
+
     def summary(self) -> None:
         self.live = False
         el = time.monotonic() - self.t0
-        rate = self.done / el * 60 if el > 0 else 0.0
+        rate = self.done / el * 3600.0 if el > 0 and self.done else 0.0
         _ORIG_PRINT("")
         _ORIG_PRINT("=" * 58)
         _ORIG_PRINT(f"  XONG  ok {self.ok} | fail {self.fail} | "
                     f"tổng {self.done}/{self.total}")
-        _ORIG_PRINT(f"  thời gian {self.mmss(el)} | {rate:.1f} acc/ph")
+        _ORIG_PRINT(f"  thời gian {self.mmss(el)} | {rate:.1f} acc/h")
         if self.reasons:
             _ORIG_PRINT("  lý do fail:")
             for k, v in sorted(self.reasons.items(), key=lambda x: -x[1]):
@@ -180,7 +195,7 @@ def print(*args, **kwargs):
             return
         if msg.startswith("[REG]") and msg.endswith("xong"):
             return
-    if UI is not None:
+    if UI is not None and UI.live:
         UI.event(msg)
     else:
         _ORIG_PRINT(*args, **kwargs)
