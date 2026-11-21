@@ -50,7 +50,7 @@ async def open_chrome(headless: bool = False, proxy: dict | None = None,
             browser = await asyncio.wait_for(
                 pw.firefox.connect(meta["ws"]), timeout=5)
         except Exception as e:
-            print(f"[FOX] connect fail ({type(e).__name__}); launch riêng")
+            print(f"[FOX] connect fail ({type(e).__name__}); launch separately")
             try:
                 await pw.stop()
             except Exception:

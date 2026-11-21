@@ -8,3 +8,11 @@ accounts.db-shm
 accounts.db-wal
 .camoufox_ws
 debug/
+logs/
+.pool_quota.json
+.usage_state.json
+.vpn_state.json
+.vpn_stop
+.vpn_rotate_req
+.reg_stop
+*.vt.bak

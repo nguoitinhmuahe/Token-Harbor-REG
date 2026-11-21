@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token Harbor · panel</title>
+<style>
+:root{
+  --bg:#08090a; --side:#0a0b0d; --card:#0d0f11; --card2:#141619;
+  --line:rgba(255,255,255,.06); --line2:rgba(255,255,255,.11);
+  --txt:#f0f1f3; --dim:#9aa1a9; --dim2:#5f666e;
+  --acc:#3ecf8e; --acc2:#4d8cff; --acc3:#f0a35e;
+  --warn:#e8b339; --bad:#f0616d; --ok:#3ecf8e;
+  --r:10px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--txt);overflow-x:hidden;
+  font:450 14px/1.5 "Inter","Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-variant-numeric:tabular-nums}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(120% 88% at 80% -12%,rgba(77,140,255,.06),transparent 56%)}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#23262b;border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:#2f343a;background-clip:padding-box}
+a{color:var(--acc2)}
+::selection{background:rgba(77,140,255,.3)}
+
+.shell{display:grid;grid-template-columns:236px 1fr;min-height:100vh}
+
+.side{position:sticky;top:0;height:100vh;padding:16px 12px 14px;display:flex;flex-direction:column;gap:6px;
+  border-right:1px solid var(--line);background:var(--side)}
+.brand{display:flex;align-items:center;gap:10px;padding:6px 8px 14px}
+.logo{width:26px;height:26px;border-radius:7px;flex:0 0 auto;display:grid;place-items:center;
+  background:linear-gradient(150deg,#4d8cff,#2f5fd0);color:#fff;font-weight:700;font-size:13px;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 2px 10px rgba(77,140,255,.3)}
+.brand .t{font-weight:600;letter-spacing:-.01em;font-size:13.5px;line-height:1.15}
+.brand .t small{display:block;font-weight:450;color:var(--dim2);font-size:10.5px;
+  letter-spacing:.16em;text-transform:uppercase;margin-top:2px}
+.nav{display:flex;flex-direction:column;gap:1px}
+.nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;
+  border:1px solid transparent;color:var(--dim);padding:7px 9px;border-radius:7px;
+  font:500 13px/1 inherit;cursor:pointer;transition:background .12s,color .12s,border-color .12s}
+.nav button:hover{color:var(--txt);background:var(--card2)}
+.nav button.on{color:var(--txt);background:var(--card2);border-color:var(--line2)}
+.nav .ic{width:16px;height:16px;flex:0 0 auto;color:var(--dim2);transition:color .12s}
+.nav button:hover .ic{color:var(--dim)}
+.nav button.on .ic{color:var(--acc2)}
+.nav .bd{margin-left:auto;font-size:11px;color:var(--dim2);font-weight:500}
+.nav button.on .bd{color:var(--dim)}
+.side .foot{margin-top:auto;padding:12px 8px 2px;border-top:1px solid var(--line);color:var(--dim2);font-size:11.5px}
+.side .foot b{color:var(--dim);font-weight:500}
+
+.main{min-width:0}
+.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:14px 26px;border-bottom:1px solid var(--line);background:var(--bg)}
+.top h1{font-size:17px;margin:0;font-weight:600;letter-spacing:-.02em}
+.top .sub{color:var(--dim);font-size:12.5px}
+.pills{display:flex;gap:7px;flex-wrap:wrap;margin-left:auto}
+.pill{display:flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);
+  border-radius:8px;padding:5px 11px;font-size:12px;color:var(--dim);white-space:nowrap}
+.pill b{color:var(--txt);font-weight:550}
+.pill .dot{width:6px;height:6px;border-radius:50%;background:var(--dim2);flex:0 0 auto}
+.dot.ok{background:var(--ok)}
+.dot.bad{background:var(--bad)}
+.dot.warn{background:var(--warn)}
+.dot.blue{background:var(--acc2)}
+.dot.live{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+.view{display:none;padding:22px 26px 64px;max-width:1560px}
+.view.on{display:block}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.cols{display:grid;gap:12px;grid-template-columns:1.35fr 1fr}
+@media(max-width:1080px){.cols{grid-template-columns:1fr}.shell{grid-template-columns:1fr}
+  .side{position:relative;height:auto;flex-direction:row;align-items:center;flex-wrap:wrap;
+    border-right:none;border-bottom:1px solid var(--line)}
+  .side .brand{padding:4px 8px}.nav{flex-direction:row;flex-wrap:wrap}.nav button{padding:8px 12px}
+  .side .foot{display:none}}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;
+  position:relative;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
+.card.pad0{padding:0}
+.card h3{margin:0 0 14px;font-size:12.5px;font-weight:600;letter-spacing:-.01em;color:var(--txt)}
+.card h3 .r{float:right;letter-spacing:0;font-size:12px;color:var(--dim2);font-weight:450}
+
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px 15px;
+  position:relative;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,.03)}
+.stat .k{font-size:11.5px;letter-spacing:0;text-transform:none;color:var(--dim2);font-weight:500}
+.stat .v{font-size:25px;font-weight:600;margin-top:5px;letter-spacing:-.025em;font-variant-numeric:tabular-nums}
+.u{font-size:13px;color:var(--dim);font-weight:500;margin-left:4px}
+.stat .s{font-size:11.5px;color:var(--dim2);margin-top:4px;min-height:15px}
+.stat.acc .v{color:var(--acc)}
+.stat.blue .v{color:var(--acc2)}
+.stat.warn .v{color:var(--warn)}
+.stat.bad .v{color:var(--bad)}
+.stat.ok .v{color:var(--ok)}
+.stat.violet .v{color:var(--acc3)}
+
+.flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+.node{flex:1;min-width:170px;background:transparent;border:1px solid var(--line);border-radius:var(--r);
+  padding:13px 14px;position:relative}
+.node .lbl{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim2);font-weight:600}
+.node .ttl{font-weight:600;font-size:14px;margin-top:5px;display:flex;align-items:center;gap:7px;letter-spacing:-.01em}
+.node .val{font-size:19px;font-weight:600;margin-top:9px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.node .sm{font-size:11.5px;color:var(--dim);margin-top:3px;word-break:break-all}
+.link{flex:0 0 40px;display:grid;place-items:center;color:var(--dim2)}
+.link .dash{width:100%;height:1px;background:var(--line2);position:relative}
+.link .dash::after{content:"";position:absolute;top:-3px;left:0;width:7px;height:7px;border-radius:50%;
+  background:var(--acc2);box-shadow:0 0 8px rgba(77,140,255,.7);animation:travel 1.8s linear infinite}
+@keyframes travel{0%{left:0;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:calc(100% - 7px);opacity:0}}
+.link.off .dash::after{animation:none;opacity:0}
+
+.chip{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:500;
+  border:1px solid var(--line2);color:var(--dim);background:rgba(255,255,255,.02)}
+.chip.on{color:var(--ok);border-color:rgba(62,207,142,.3);background:rgba(62,207,142,.08)}
+.chip.bad{color:var(--bad);border-color:rgba(240,97,109,.3);background:rgba(240,97,109,.08)}
+.chip.warn{color:var(--warn);border-color:rgba(232,179,57,.3);background:rgba(232,179,57,.08)}
+.chip.blue{color:var(--acc2);border-color:rgba(77,140,255,.3);background:rgba(77,140,255,.08)}
+.chip.off{color:var(--dim2);border-color:var(--line2);background:rgba(255,255,255,.02)}
+
+.bars{display:flex;align-items:flex-end;gap:3px;height:70px;margin-top:6px}
+.bars .b{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;min-width:0}
+.bars .b i{width:100%;border-radius:3px 3px 0 0;background:linear-gradient(180deg,var(--acc2),rgba(77,140,255,.22));min-height:2px}
+.bars .b span{font-size:9.5px;color:var(--dim2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.bars .b.hot i{background:linear-gradient(180deg,var(--bad),rgba(240,97,109,.25))}
+
+.kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.kv:last-child{border-bottom:none}
+.kv .k{color:var(--dim)}
+.kv .v{font-weight:500;font-variant-numeric:tabular-nums}
+.mono{font-family:"Cascadia Mono",Consolas,ui-monospace,monospace;font-size:12px;color:var(--dim)}
+
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+label{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--dim)}
+input,select{background:var(--card2);border:1px solid var(--line2);border-radius:8px;color:var(--txt);
+  padding:8px 10px;font:500 13px/1 inherit;outline:none;min-width:82px;transition:border-color .12s,box-shadow .12s}
+input:focus,select:focus{border-color:var(--acc2);box-shadow:0 0 0 3px rgba(77,140,255,.14)}
+input[type=checkbox]{min-width:0;width:16px;height:16px;accent-color:var(--acc2)}
+.chk{flex-direction:row;align-items:center;gap:8px;color:var(--txt);font-size:13px}
+.btn{background:transparent;border:1px solid var(--line2);color:var(--txt);padding:9px 14px;border-radius:8px;
+  font:500 12.5px/1 inherit;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+  transition:background .12s,border-color .12s,color .12s}
+.btn:hover{background:var(--card2);border-color:rgba(255,255,255,.2)}
+.btn:active{transform:translateY(1px)}
+.btn.acc{background:#fff;border-color:#fff;color:#0a0a0a;font-weight:550}
+.btn.acc:hover{background:#e6e6e6;border-color:#e6e6e6}
+.btn.blue{background:var(--acc2);border-color:var(--acc2);color:#fff;font-weight:550}
+.btn.blue:hover{background:#3d7cf0;border-color:#3d7cf0}
+.btn.bad{color:#ffd7db;border-color:rgba(240,97,109,.4);background:rgba(240,97,109,.12)}
+.btn.bad:hover{background:rgba(240,97,109,.18);border-color:rgba(240,97,109,.5)}
+.btn.sm{padding:7px 11px;font-size:12px;border-radius:7px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.spacer{flex:1}
+.hint{color:var(--dim2);font-size:12px}
+.flex{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+.prog{height:6px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden;flex:1;min-width:150px}
+.prog i{display:block;height:100%;width:0;border-radius:4px;background:var(--acc2);transition:width .3s ease}
+.prog.indet i{width:34%;animation:slide 1.15s infinite linear}
+@keyframes slide{0%{margin-left:-34%}100%{margin-left:100%}}
+.spin{width:13px;height:13px;border:2px solid rgba(255,255,255,.22);border-top-color:currentColor;
+  border-radius:50%;display:inline-block;animation:rot .7s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+#log{background:#060708;border:1px solid var(--line);border-radius:var(--r);height:360px;overflow:auto;padding:13px;
+  font:12.5px/1.55 "Cascadia Mono",Consolas,ui-monospace,monospace;white-space:pre-wrap;word-break:break-word}
+#log .l{display:block}
+#log .l.err{color:#f28b93}
+#log .l.ok{color:#5fd0a0}
+#log .l.dim{color:var(--dim2)}
+.tw{max-height:560px;overflow:auto;border-radius:var(--r);border:1px solid var(--line)}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+th{text-align:left;color:var(--dim2);font-size:10.5px;letter-spacing:.07em;position:sticky;top:0;z-index:2;
+  text-transform:uppercase;padding:10px 12px;border-bottom:1px solid var(--line);font-weight:600;background:var(--card)}
+td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:hover td{background:rgba(255,255,255,.02)}
+tr.new td{animation:rowin .9s ease-out}
+@keyframes rowin{0%{background:rgba(77,140,255,.16)}100%{background:transparent}}
+.tag{display:inline-block;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:500}
+.tag.on{background:rgba(62,207,142,.1);color:var(--ok);border:1px solid rgba(62,207,142,.28)}
+.tag.off{background:rgba(240,97,109,.1);color:var(--bad);border:1px solid rgba(240,97,109,.28)}
+.tag.warn{background:rgba(232,179,57,.1);color:var(--warn);border:1px solid rgba(232,179,57,.28)}
+.bar{height:6px;border-radius:4px;background:rgba(255,255,255,.06);overflow:hidden;flex:1;min-width:60px}
+.bar i{display:block;height:100%;background:var(--acc2);border-radius:4px}
+.bar i.hot{background:var(--warn)}
+.hide{display:none !important}
+
+#toast{position:fixed;right:20px;bottom:20px;display:flex;flex-direction:column;gap:9px;z-index:60;max-width:min(430px,90vw)}
+#toast div{background:#141619;border:1px solid var(--line2);border-left:3px solid var(--acc);
+  padding:11px 15px;border-radius:8px;font-size:13px;box-shadow:0 16px 44px rgba(0,0,0,.55);animation:in .2s}
+#toast div.bad{border-left-color:var(--bad)}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+@media(prefers-reduced-motion:reduce){
+  .dot.live,.link .dash::after,.prog.indet i,.spin{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <div class="logo">T</div>
+      <div class="t">Token Harbor<small>control panel</small></div>
+    </div>
+    <nav class="nav" id="nav">
+      <button data-tab="overview" class="on"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Overview</button>
+      <button data-tab="reg"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18" stroke-linecap="round"/></svg>Register <span class="bd" id="nb-reg"></span></button>
+      <button data-tab="keys"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2 20 3m-3 0 3 3m-6 0 2 2" stroke-linecap="round"/></svg>Keys <span class="bd" id="nb-keys"></span></button>
+      <button data-tab="usage"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5m5 14V9m5 10v-7m5 7V7" stroke-linecap="round"/></svg>Usage <span class="bd" id="nb-usage"></span></button>
+      <button data-tab="prov"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14 0 18M12 3c-3 3.5-3 14 0 18" stroke-linecap="round"/></svg>Providers <span class="bd" id="nb-prov"></span></button>
+      <button data-tab="gate"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" stroke-linejoin="round"/></svg>Gateway / IP <span class="bd" id="nb-gate"></span></button>
+    </nav>
+    <div class="foot">
+      <div>dashboard <b id="foot-host">localhost</b></div>
+      <div style="margin-top:4px">gateway <b id="foot-gate">?</b></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <div>
+        <h1 id="ttl">Overview</h1>
+        <div class="sub" id="sub">self-hosted key pool · gateway</div>
+      </div>
+      <div class="pills" id="pills"></div>
+    </header>
+
+    <section class="view on" id="v-overview">
+      <div class="card" style="margin-bottom:14px">
+        <h3>request flow <span class="r" id="ov-flow-r"></span></h3>
+        <div class="flow">
+          <div class="node">
+            <div class="lbl">client side</div>
+            <div class="ttl">App / client</div>
+            <div class="val" id="ov-app">—</div>
+            <div class="sm">points to <span class="mono" id="ov-gateurl">—</span></div>
+          </div>
+          <div class="link" id="lk1"><div class="dash"></div></div>
+          <div class="node">
+            <div class="lbl">throttle gateway</div>
+            <div class="ttl">gateway <span class="chip" id="ov-gate-chip">?</span></div>
+            <div class="val" id="ov-rpm">—</div>
+            <div class="sm" id="ov-gate-sm">—</div>
+          </div>
+          <div class="link" id="lk2"><div class="dash"></div></div>
+          <div class="node">
+            <div class="lbl">router key</div>
+            <div class="ttl">router <span class="chip blue" id="ov-strat">?</span></div>
+            <div class="val" id="ov-keys">—</div>
+            <div class="sm" id="ov-pool-sm">—</div>
+          </div>
+          <div class="link" id="lk3"><div class="dash"></div></div>
+          <div class="node">
+            <div class="lbl">upstream</div>
+            <div class="ttl">provider</div>
+            <div class="val" id="ov-model">—</div>
+            <div class="sm mono" id="ov-base">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid g4" style="margin-bottom:14px">
+        <div class="stat acc"><div class="k">active keys</div><div class="v" id="ov-active">—</div><div class="s" id="ov-active-s"></div></div>
+        <div class="stat blue"><div class="k">quota left</div><div class="v" id="ov-left">—</div><div class="s" id="ov-left-s"></div></div>
+        <div class="stat"><div class="k">gateway rate</div><div class="v" id="ov-rpm2">—</div><div class="s" id="ov-rpm2-s"></div></div>
+        <div class="stat violet"><div class="k">throughput</div><div class="v" id="ov-req">—</div><div class="s" id="ov-req-s"></div></div>
+      </div>
+
+      <div class="cols">
+        <div class="card">
+          <h3>throttle gateway — live stats <span class="r" id="ov-gate-up"></span></h3>
+          <div class="grid g2" style="grid-template-columns:1fr 1fr">
+            <div class="kv"><span class="k">requests through gateway</span><span class="v" id="g-total">—</span></div>
+            <div class="kv"><span class="k">success</span><span class="v" id="g-ok" style="color:var(--ok)">—</span></div>
+            <div class="kv"><span class="k">429 (last)</span><span class="v" id="g-429" style="color:var(--warn)">—</span></div>
+            <div class="kv"><span class="k">503 (last)</span><span class="v" id="g-503" style="color:var(--bad)">—</span></div>
+            <div class="kv"><span class="k">retry</span><span class="v" id="g-retry">—</span></div>
+            <div class="kv"><span class="k">holding</span><span class="v" id="g-hold">—</span></div>
+          </div>
+          <div class="bars" id="g-hist"></div>
+          <div class="hint" style="margin-top:8px">bars = requests per 3s window (blue) · 429/503 (red)</div>
+        </div>
+        <div class="card">
+          <h3>IP / VPN <span class="r" id="ov-vpn-r"></span></h3>
+          <div class="kv"><span class="k">region</span><span class="v mono" id="v-region">—</span></div>
+          <div class="kv"><span class="k">current IP</span><span class="v mono" id="v-ip">—</span></div>
+          <div class="kv"><span class="k">VPN state</span><span class="v" id="v-state">—</span></div>
+          <div class="kv"><span class="k">rotations</span><span class="v" id="v-sw">—</span></div>
+          <div class="flex" style="margin-top:14px">
+            <button class="btn sm blue" id="b-rotate">Rotate IP now</button>
+            <button class="btn sm" id="b-rot-toggle">Start rotator</button>
+          </div>
+          <div class="hint" style="margin-top:10px">VPN = 1 IP per session. rotate ~17-18s. gateway only rotates on 429 (no spam).</div>
+        </div>
+      </div>
+
+      <div class="cols" style="margin-top:14px">
+        <div class="card">
+          <h3>pool quota by reset day <span class="r" id="ov-quota-r"></span></h3>
+          <div class="bars" id="q-buckets"></div>
+          <div class="hint" style="margin-top:10px" id="q-note">click the button to scan pool quota</div>
+          <div class="flex" style="margin-top:12px">
+            <button class="btn sm" id="b-quota">Scan pool quota</button>
+            <button class="btn sm" id="b-rr">Enable round-robin</button>
+            <button class="btn sm" id="b-refresh">Clear locks + re-enable</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>usage distribution</h3>
+          <div class="bars" id="q-hist"></div>
+          <div class="hint" style="margin-top:10px">bars = accounts per %-used bucket (week)</div>
+          <div class="kv" style="margin-top:10px"><span class="k">accounts scanned</span><span class="v" id="q-accs">—</span></div>
+          <div class="kv"><span class="k">quota / acc</span><span class="v" id="q-per">—</span></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <h3>upstream error codes <span class="r" id="ov-codes-r"></span></h3>
+        <div class="flex" id="ov-codes" style="gap:8px"></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-reg">
+      <div class="grid g4" style="margin-bottom:14px">
+        <div class="stat ok"><div class="k">live</div><div class="v" id="r-ok">0</div><div class="s" id="r-ok-sub"></div></div>
+        <div class="stat bad"><div class="k">fail</div><div class="v" id="r-fail">0</div><div class="s" id="r-fail-sub"></div></div>
+        <div class="stat acc"><div class="k">remaining</div><div class="v" id="r-left">-</div><div class="s" id="r-left-sub"></div></div>
+        <div class="stat"><div class="k">acc/h</div><div class="v" id="r-rate">-</div><div class="s" id="r-rate-sub"></div></div>
+      </div>
+      <div class="card">
+        <div class="row">
+          <label>accounts<input id="c-count" type="number" value="20" min="1"></label>
+          <label>concurrency<input id="c-conc" type="number" value="5" min="1"></label>
+          <label>accounts / IP<input id="c-perip" type="number" value="5" min="1"></label>
+          <label>network
+            <select id="c-net">
+              <option value="express" selected>express (rotate host)</option>
+              <option value="direct">direct (existing VPN)</option>
+              <option value="nest">nest (proxy)</option>
+            </select>
+          </label>
+          <label class="chk"><input id="c-web" type="checkbox" checked> web HTTP</label>
+          <label class="chk"><input id="c-prov" type="checkbox" checked> add to router</label>
+          <label class="chk"><input id="c-head" type="checkbox" checked> headless</label>
+          <div class="spacer"></div>
+          <button class="btn acc" id="btn-start">Start</button>
+          <button class="btn bad" id="btn-stop">Stop</button>
+          <button class="btn" id="btn-kill">Kill</button>
+        </div>
+        <div class="flex hide" id="r-prog-wrap" style="margin-top:14px">
+          <div class="prog" id="r-prog"><i></i></div>
+          <span class="hint" id="r-prog-txt"></span>
+        </div>
+        <div class="hint" id="r-cfg" style="margin-top:10px"></div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <div class="flex" style="margin-bottom:9px">
+          <h3 style="margin:0">live log</h3><span class="hint" id="r-logfile"></span>
+          <div class="spacer"></div>
+          <label class="chk"><input id="c-auto" type="checkbox" checked> auto-scroll</label>
+        </div>
+        <div id="log"><span class="l dim">not started</span></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-keys">
+      <div class="grid g4" style="margin-bottom:14px">
+        <div class="stat acc"><div class="k">keys in pool</div><div class="v" id="k-tokens">-</div></div>
+        <div class="stat blue"><div class="k">already in router</div><div class="v" id="k-prov">-</div></div>
+        <div class="stat"><div class="k">accounts in db</div><div class="v" id="k-acc">-</div></div>
+        <div class="stat ok"><div class="k">live in db</div><div class="v" id="k-live">-</div></div>
+      </div>
+      <div class="card">
+        <div class="flex" style="margin-bottom:10px">
+          <input id="k-q" placeholder="search key / key tail" style="flex:1;min-width:200px">
+          <button class="btn" id="k-refresh">Reload</button>
+          <button class="btn acc" id="k-missing">Add missing keys</button>
+        </div>
+        <div class="hint" style="margin-bottom:10px">probes <span class="mono">free-tier</span> per key before adding — drops dead (401/403) and exhausted keys</div>
+        <div class="tw">
+          <table><thead><tr><th>key</th><th>tail</th><th>router</th><th></th></tr></thead><tbody id="k-body"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="v-usage">
+      <div class="card" style="margin-bottom:14px">
+        <div class="flex">
+          <button class="btn acc" id="u-scan">Scan usage</button>
+          <button class="btn" id="u-refresh">View results</button>
+          <button class="btn bad" id="u-off">Disable exhausted</button>
+          <label>threshold %<input id="u-th" type="number" value="100" min="1" max="100" style="min-width:70px"></label>
+          <div class="spacer"></div>
+          <span class="hint" id="u-meta">not scanned</span>
+        </div>
+        <div class="flex hide" id="u-prog-wrap" style="margin-top:12px">
+          <div class="prog" id="u-prog"><i></i></div><span class="hint mono" id="u-prog-txt">0/0</span>
+        </div>
+        <div class="flex" style="margin-top:12px">
+          <input id="u-q" placeholder="filter name / key tail" style="flex:1;min-width:180px">
+          <label class="chk"><input id="u-only-on" type="checkbox"> active only</label>
+        </div>
+        <div class="hint" style="margin-top:8px"><span class="mono">free-tier</span> · % used this period · reset = quota reset date</div>
+      </div>
+      <div class="card pad0">
+        <div class="tw">
+          <table><thead><tr><th>account</th><th>key tail</th><th>used</th><th>req</th><th>reset</th><th>status</th><th>router</th></tr></thead><tbody id="u-body"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="v-prov">
+      <div class="card" style="margin-bottom:14px">
+        <div class="flex">
+          <button class="btn" id="n-refresh">Reload</button>
+          <button class="btn blue" id="n-rr">Enable round-robin</button>
+          <button class="btn" id="n-refresh-pool">Clear locks + re-enable</button>
+          <div class="spacer"></div>
+          <span class="hint" id="n-meta"></span>
+        </div>
+      </div>
+      <div class="card pad0">
+        <div class="tw">
+          <table><thead><tr><th>account</th><th>key tail</th><th>last error</th><th>status</th><th></th></tr></thead><tbody id="n-body"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="v-gate">
+      <div class="grid g2" style="margin-bottom:14px">
+        <div class="card">
+          <h3>throttle gateway</h3>
+          <div class="kv"><span class="k">status</span><span class="v"><span class="chip" id="gt-chip">?</span></span></div>
+          <div class="kv"><span class="k">address</span><span class="v mono" id="gt-url">—</span></div>
+          <div class="kv"><span class="k">rate applied</span><span class="v" id="gt-eff">—</span></div>
+          <div class="kv"><span class="k">rate set</span><span class="v" id="gt-set">—</span></div>
+          <div class="kv"><span class="k">uptime</span><span class="v" id="gt-up">—</span></div>
+          <div class="flex" style="margin-top:14px">
+            <label>req/min (0 = auto by quota)<input id="gt-rpm" type="number" value="0" min="0" style="min-width:110px"></label>
+            <button class="btn sm acc" id="gt-apply">Apply</button>
+          </div>
+          <div class="flex" style="margin-top:12px">
+            <button class="btn sm acc" id="gt-start">Start gateway</button>
+            <button class="btn sm bad" id="gt-stop">Stop gateway</button>
+          </div>
+          <div class="hint" style="margin-top:12px">point your client at <span class="mono" id="gt-url2">—</span> instead of the origin endpoint.</div>
+        </div>
+        <div class="card">
+          <h3>IP rotator</h3>
+          <div class="kv"><span class="k">rotator</span><span class="v"><span class="chip" id="rt-chip">?</span></span></div>
+          <div class="kv"><span class="k">auto-rotate on 429</span><span class="v"><span class="chip" id="rt-hook">?</span></span></div>
+          <div class="kv"><span class="k">region</span><span class="v mono" id="rt-region">—</span></div>
+          <div class="kv"><span class="k">current IP</span><span class="v mono" id="rt-ip">—</span></div>
+          <div class="kv"><span class="k">rotations</span><span class="v" id="rt-sw">—</span></div>
+          <div class="flex" style="margin-top:14px">
+            <button class="btn sm" id="rt-start">Start rotator</button>
+            <button class="btn sm bad" id="rt-stop">Stop rotator</button>
+            <button class="btn sm blue" id="rt-rotate">Rotate IP now</button>
+          </div>
+          <div class="hint" style="margin-top:12px">rotator only changes on demand (gateway hit 429). turn off auto-rotate to keep the same IP.</div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>gateway stats</h3>
+        <div class="grid g4">
+          <div class="stat"><div class="k">total requests</div><div class="v" id="gs-total">—</div></div>
+          <div class="stat ok"><div class="k">ok</div><div class="v" id="gs-ok">—</div></div>
+          <div class="stat warn"><div class="k">429</div><div class="v" id="gs-429">—</div></div>
+          <div class="stat bad"><div class="k">503</div><div class="v" id="gs-503">—</div></div>
+          <div class="stat"><div class="k">retry</div><div class="v" id="gs-retry">—</div></div>
+          <div class="stat"><div class="k">throttle</div><div class="v" id="gs-throttle">—</div></div>
+          <div class="stat"><div class="k">hold</div><div class="v" id="gs-hold">—</div></div>
+          <div class="stat"><div class="k">tokens left</div><div class="v" id="gs-tokens">—</div></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+const enc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nInt = n => (n==null||isNaN(n)) ? "—" : Math.round(n).toLocaleString("en-US");
+const fmtDur = s => { s=Math.max(0,s|0); const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;
+  return h?`${h}h${String(m).padStart(2,'0')}m`: m?`${m}m${String(x).padStart(2,'0')}s`:`${x}s`; };
+const pct = (a,b) => b>0 ? Math.max(0,Math.min(100,a/b*100)) : 0;
+const num = v => { const n=Number(v); return isNaN(n)?0:n; };
+
+function toast(msg, bad){
+  const d=document.createElement('div'); d.className=bad?'bad':''; d.textContent=msg;
+  $('#toast').appendChild(d); setTimeout(()=>d.remove(),5000);
+}
+async function api(path, body){
+  const opt = body===undefined ? {} : {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)};
+  const r = await fetch(path, opt);
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return await r.json();
+}
+function busy(btn,label){
+  if(btn.dataset.busy) return null;
+  const old=btn.innerHTML, t0=Date.now();
+  btn.dataset.busy='1'; btn.disabled=true;
+  const paint=()=>btn.innerHTML=`<span class="spin"></span> ${label} ${Math.round((Date.now()-t0)/1000)}s`;
+  paint(); const iv=setInterval(paint,500);
+  return ()=>{clearInterval(iv); delete btn.dataset.busy; btn.disabled=false; btn.innerHTML=old;};
+}
+
+const TITLES={overview:['Overview','self-hosted key pool · gateway'],
+  reg:['Register','register new accounts + live log'], keys:['Keys','keys in pool vs router'],
+  usage:['Usage','scan quota per account'], prov:['Providers','account list in the router'],
+  gate:['Gateway / IP','throttle + IP rotation']};
+let tab='overview';
+$$('#nav button').forEach(b=>{ b.onclick=()=>{
+  tab=b.dataset.tab;
+  $$('#nav button').forEach(x=>x.classList.toggle('on',x===b));
+  $$('.view').forEach(s=>s.classList.toggle('on', s.id==='v-'+tab));
+  $('#ttl').textContent=TITLES[tab][0]; $('#sub').textContent=TITLES[tab][1];
+  if(tab==='keys') loadKeys();
+  if(tab==='usage') loadUsage();
+  if(tab==='prov') loadProviders();
+};});
+
+let lastSeq=0, logFirst=true, stopSent=false;
+function pill(dot,text){ return `<div class="pill"><span class="dot ${dot}"></span>${text}</div>`; }
+
+const gh={ok:[],bad:[]};
+let ghPrev={t:0,bad:0};
+function pushHist(ok,bad){ gh.ok.push(ok); gh.bad.push(bad); if(gh.ok.length>26){gh.ok.shift();gh.bad.shift();} drawHist(); }
+function drawHist(){
+  const max=Math.max(1,...gh.ok,...gh.bad);
+  const mk=(arr,hot)=>arr.map(v=>`<div class="b ${hot?'hot':''}"><i style="height:${Math.max(2,v/max*62)}px"></i></div>`).join('');
+  const bads=gh.bad.map(v=>`<div class="b hot"><i style="height:${Math.max(2,v/max*62)}px"></i></div>`).join('');
+  $('#g-hist').innerHTML = gh.ok.length? (mk(gh.ok,false)+bads) : '<span class="hint">collecting…</span>';
+}
+function drawBars(el, items, hot){
+  if(!items||!items.length){ $(el).innerHTML='<span class="hint">—</span>'; return; }
+  const max=Math.max(1,...items.map(i=>i.v));
+  $(el).innerHTML = items.map(i=>`<div class="b ${i.hot||hot?'hot':''}" title="${enc(i.t||'')}: ${nInt(i.v)}">
+    <i style="height:${Math.max(2,i.v/max*62)}px"></i><span>${enc(i.l||'')}</span></div>`).join('');
+}
+
+async function tick(){
+  let s; try{ s=await api('/api/state'); }catch(e){ return; }
+  const vpn=s.vpn||{}, c=s.counts||{};
+  const vpnOk=(vpn.state||'').toLowerCase()==='connected';
+  $('#pills').innerHTML =
+    pill(vpnOk?'ok':'bad',`VPN <b>${enc(vpn.state||'?')}</b>`) +
+    (vpn.ip?pill('',`ip <b class="mono">${enc(String(vpn.ip).slice(-15))}</b>`):'') +
+    pill(s.running?'ok live':'',`reg <b>${s.running?'running':'stopped'}</b>`) +
+    pill('',`db <b>${c.db??'-'}</b> · live <b>${c.live??'-'}</b>`) +
+    pill('blue',`tokens <b>${c.tokens??'-'}</b>`);
+
+  const total=s.total||0;
+  const done=s.done_n!=null?s.done_n:Math.max(0,total-(s.remaining==null?total:s.remaining));
+  const left=Math.max(0,total-done);
+  $('#r-ok').textContent=s.ok??0; $('#r-fail').textContent=s.fail??0;
+  $('#r-left').textContent=s.running?left:(total?left:'-');
+  $('#r-rate').textContent=s.rate||'-';
+  $('#r-ok-sub').textContent=total?`${s.ok||0}/${total} acc`:'';
+  $('#r-fail-sub').textContent=(s.ok||0)+(s.fail||0)?`${(s.ok||0)+(s.fail||0)} attempts`:'';
+  $('#r-left-sub').textContent=total?`done ${done}/${total}`:'';
+  $('#r-rate-sub').textContent=s.elapsed?`running ${fmtDur(s.elapsed)}`:'';
+  const wrap=$('#r-prog-wrap'), bar=$('#r-prog');
+  if(total>0){ wrap.classList.remove('hide'); bar.classList.remove('indet');
+    bar.firstElementChild.style.width=pct(done,total)+'%';
+    $('#r-prog-txt').textContent=`${done}/${total} · ${Math.round(pct(done,total))}%`+(s.running?' · running':(s.done?' · done':''));
+  } else wrap.classList.add('hide');
+  $('#r-cfg').textContent = s.cfg&&s.cfg.count
+    ? `config: ${s.cfg.count} accounts · ${s.cfg.concurrent} concurrent · ${s.cfg.per_ip}/IP · ${s.cfg.net}`+(s.cfg.web?' · web':'')+(s.cfg.prov?' · +router':'')+(s.cfg.headless?' · headless':'')
+    : (s.done?'previous run finished':'');
+  $('#r-logfile').textContent=s.logfile?s.logfile.split('\\').pop():'';
+  $('#btn-start').disabled=!!s.running||stopSent;
+  $('#btn-stop').disabled=!s.running||stopSent;
+  $('#btn-stop').innerHTML=stopSent?'<span class="spin"></span> stopping':'Stop';
+  if(!s.running) stopSent=false;
+  $('#nb-reg').textContent=s.running?'●':(total?`${s.ok||0}/${total}`:'');
+  $('#nb-usage').textContent=(s.usage&&s.usage.running)?'●':'';
+  if(tab==='reg') pullLog();
+}
+
+let ovPrev=null;
+async function tickOv(){
+  let o; try{ o=await api('/api/overview'); }catch(e){ return; }
+  ovPrev=o;
+  const p=o.pool||{}, g=o.gate||{}, q=o.quota||{}, v=(o.vpn&&o.vpn.file)||{}, vc=(o.vpn&&o.vpn.cache)||{};
+
+  const gRun=!!g.running;
+  $('#ov-gateurl').textContent=g.url||'—';
+  $('#ov-gate-chip').className='chip '+(gRun?'on':'bad'); $('#ov-gate-chip').textContent=gRun?'running':'off';
+  $('#lk1').className='link'+(gRun?'':' off');
+  $('#ov-rpm').innerHTML = gRun ? `${Math.round(num(g.rpm_eff))}<span class="u">req/min</span>` : '—';
+  $('#ov-gate-sm').textContent = gRun ? `${nInt(g.total)} through gateway · ${nInt(g.err429)}×429 · ${nInt(g.retried)} retry` : 'gateway off';
+  $('#lk2').className='link'+(gRun?'':' off');
+  $('#lk3').className='link'+((p.active||0)>0?'':' off');
+  $('#ov-strat').className='chip '+((p.strategy||'').includes('round')?'blue':'warn');
+  $('#ov-strat').textContent=p.strategy||'?';
+  $('#ov-keys').innerHTML=`${nInt(p.active)}<span class="u">/ ${nInt(p.conns)} key</span>`;
+  $('#ov-pool-sm').textContent=p.node?`provider ${p.provider} · ${p.node}`:'—';
+  $('#ov-model').innerHTML = p.strategy? `<span style="font-size:14px">${enc(p.model||'—')}</span>` : '—';
+  $('#ov-base').textContent=p.baseUrl||'—';
+  const limited=!(p.strategy||'').includes('round');
+  $('#ov-flow-r').innerHTML = p.error ? `<span class="chip bad">pool error</span>`
+    : `<span class="chip ${limited?'warn':'on'}">${limited?'enable round-robin':'round-robin ✓'}</span>`;
+
+  $('#ov-active').textContent=nInt(p.active);
+  $('#ov-active-s').textContent=p.conns?`across ${nInt(p.conns)} accounts · ${nInt(p.keys)} keys`:'—';
+  const left=num(q.total_left);
+  $('#ov-left').textContent = q.total_left!=null ? nInt(left) : '—';
+  $('#ov-left-s').textContent = q.total_left!=null
+    ? `≈ ${(left/7/24/60).toFixed(1)} req/min sustained · scanned ${enc((q.ts||'').slice(5,16))}` : 'click "Scan pool quota"';
+  const effRpm=gRun?num(g.rpm_eff):0;
+  $('#ov-rpm2').innerHTML = gRun? `${Math.round(effRpm)}<span class="u">rpm</span>` : '—';
+  $('#ov-rpm2-s').textContent = gRun ? (num(g.rpm_set)?'fixed':'auto by quota')+(g.rpm_auto?` · auto ${Math.round(num(g.rpm_auto))}`:'') : 'gateway off';
+  const reqRate = gRun&&num(g.uptime_s)>0 ? num(g.total)/Math.max(1,num(g.uptime_s)/60) : 0;
+  $('#ov-req').innerHTML = gRun? `${reqRate.toFixed(1)}<span class="u">req/min</span>` : '—';
+  $('#ov-req-s').textContent = gRun? `total ${nInt(g.total)} requests through gateway` : '—';
+
+  $('#ov-gate-up').textContent = gRun?`uptime ${fmtDur(num(g.uptime_s))}`:'';
+  $('#g-total').textContent=nInt(g.total); $('#g-ok').textContent=nInt(g.ok);
+  $('#g-429').textContent=nInt(g.err429); $('#g-503').textContent=nInt(g.err503);
+  $('#g-retry').textContent=nInt(g.retried); $('#g-hold').textContent=(num(g.hold_s)>0?num(g.hold_s).toFixed(0)+'s':'0s');
+  if(gRun){
+    const t=num(g.total), e=num(g.err429)+num(g.err503);
+    pushHist(Math.max(0,t-ghPrev.t), Math.max(0,e-ghPrev.bad));
+    ghPrev={t:t,bad:e};
+  }
+
+  const region=(v.region||vc.region||''), ip=(v.ip||vc.ip||''), st=(vc.state||'');
+  $('#ov-vpn-r').textContent=v.ts?`rotated at ${enc(v.ts.slice(11))}`:'';
+  $('#v-region').textContent=region||'—';
+  $('#v-ip').textContent=ip||'—';
+  $('#v-state').innerHTML = /connect/i.test(st)?`<span class="chip on">${enc(st)}</span>`:(st?`<span class="chip warn">${enc(st)}</span>`:'—');
+  $('#v-sw').textContent=v.switches!=null?nInt(v.switches):'—';
+  $('#b-rot-toggle').textContent = g.rotator?'Stop rotator':'Start rotator';
+  $('#b-rot-toggle').className='btn sm'+(g.rotator?' bad':'');
+
+  const bk=q.buckets||{};
+  const items=Object.keys(bk).sort().slice(0,7).map(d=>({l:d.slice(5),v:num(bk[d]),t:d}));
+  drawBars('#q-buckets', items);
+  $('#ov-quota-r').textContent = q.total_left!=null? `${nInt(q.total_left)} left · ${nInt(q.total_quota)} total`:'';
+  $('#q-accs').textContent=q.accs!=null?nInt(q.accs):'—';
+  $('#q-per').textContent=q.per_acc!=null?nInt(q.per_acc)+' req/week':'—';
+  const hist=q.hist||{};
+  const hItems=Object.keys(hist).map(k=>({l:k+'-'+((+k)+10)+'%',v:num(hist[k]),hot:(+k)>=80})).sort((a,b)=>parseInt(a.l)-parseInt(b.l));
+  drawBars('#q-hist', hItems);
+  if(q.ts) $('#q-note').textContent=`scanned at ${enc(q.ts.replace('T',' ').slice(0,16))}`;
+
+  const codes=p.codes||{}; const keys=Object.keys(codes).sort();
+  $('#ov-codes').innerHTML = keys.length? keys.map(k=>{
+    const ok=k==='-', n=codes[k];
+    return `<span class="chip ${ok?'on':(k.startsWith('4')?'warn':'bad')}">${enc(k)} · ${nInt(n)} acc</span>`;
+  }).join('') : '<span class="hint">—</span>';
+  $('#ov-codes-r').textContent=p.conns?`${nInt(p.conns)} acc`:'';
+  $('#foot-gate').textContent=gRun?'on':'off';
+
+  $('#gt-chip').className='chip '+(gRun?'on':'bad'); $('#gt-chip').textContent=gRun?'running':'off';
+  $('#gt-url').textContent=g.url||'—'; $('#gt-url2').textContent=g.url||'—';
+  $('#gt-eff').textContent=gRun?Math.round(num(g.rpm_eff))+' req/min':'—';
+  $('#gt-set').textContent=(g.rpm_set!=null?(num(g.rpm_set)===0?'auto':Math.round(num(g.rpm_set))+' req/min'):'—');
+  $('#gt-up').textContent=gRun?fmtDur(num(g.uptime_s)):'—';
+  if(document.activeElement!==$('#gt-rpm')) $('#gt-rpm').value = g.rpm_set!=null?Math.round(num(g.rpm_set)):0;
+  $('#rt-chip').className='chip '+(g.rotator?'on':'off'); $('#rt-chip').textContent=g.rotator?'running':'off';
+  $('#rt-hook').className='chip '+(g.vpn_on?'on':'warn'); $('#rt-hook').textContent=g.vpn_on?'yes':'no';
+  $('#rt-region').textContent=region||'—'; $('#rt-ip').textContent=ip||'—';
+  $('#rt-sw').textContent=v.switches!=null?nInt(v.switches):'—';
+  $('#gs-total').textContent=nInt(g.total); $('#gs-ok').textContent=nInt(g.ok);
+  $('#gs-429').textContent=nInt(g.err429); $('#gs-503').textContent=nInt(g.err503);
+  $('#gs-retry').textContent=nInt(g.retried); $('#gs-throttle').textContent=nInt(g.throttled);
+  $('#gs-hold').textContent=(num(g.hold_s)>0?num(g.hold_s).toFixed(0)+'s':'0s');
+  $('#gs-tokens').textContent=gRun?num(g.tokens).toFixed(1):'—';
+  $('#nb-gate').textContent=gRun?'●':'';
+}
+
+async function pullLog(){
+  let d; try{ d=await api('/api/log?seq='+lastSeq); }catch(e){ return; }
+  if(!d.lines||!d.lines.length) return;
+  const box=$('#log'); if(logFirst){ box.innerHTML=''; logFirst=false; }
+  for(const line of d.lines){
+    const el=document.createElement('span');
+    el.className='l'+(/\[FAIL\]|error|traceback|fail/i.test(line)?' err':/\[DONE\]|-> live|DONE/.test(line)?' ok':/^\[(STAT|BATCH)\]/.test(line)?' dim':'');
+    el.textContent=line; box.appendChild(el);
+  }
+  while(box.children.length>1500) box.removeChild(box.firstChild);
+  lastSeq=d.seq; if($('#c-auto').checked) box.scrollTop=box.scrollHeight;
+}
+
+$('#btn-start').onclick=async()=>{
+  const cfg={count:+$('#c-count').value,concurrent:+$('#c-conc').value,per_ip:+$('#c-perip').value,
+    net:$('#c-net').value,web:$('#c-web').checked,prov:$('#c-prov').checked,headless:$('#c-head').checked};
+  if(!(cfg.count>=1)) return toast('accounts must be >= 1',true);
+  const done=busy($('#btn-start'),'starting');
+  try{
+    const r=await api('/api/reg',cfg);
+    if(r.ok){ lastSeq=0; logFirst=true; stopSent=false;
+      $('#log').innerHTML='<span class="l dim">waiting for log...</span>';
+      toast(`started: ${cfg.count} accounts · ${cfg.concurrent} concurrent · ${cfg.net}`);
+    } else toast('error: '+r.msg,true);
+  }catch(e){ toast('server error: '+e.message,true); } finally{ done&&done(); tick(); }
+};
+$('#btn-stop').onclick=async()=>{
+  const r=await api('/api/reg/stop',{}).catch(e=>({ok:false,msg:e.message}));
+  if(r.ok){ stopSent=true; toast(r.msg); } else toast('error: '+r.msg,true); tick();
+};
+$('#btn-kill').onclick=async()=>{
+  if(!confirm('Force-kill the registration process? VPN may not be restored.')) return;
+  const r=await api('/api/reg/kill',{}).catch(e=>({ok:false,msg:e.message}));
+  toast(r.msg||'ok',!r.ok); stopSent=false; tick();
+};
+
+let keyRows=[];
+async function loadKeys(){
+  let d; try{ d=await api('/api/keys'); }catch(e){ $('#k-body').innerHTML='<tr><td colspan="4" class="hint">failed to load keys</td></tr>'; return; }
+  keyRows=d.rows||[];
+  $('#k-tokens').textContent=d.tokens??0; $('#k-prov').textContent=d.in_router??0;
+  $('#k-acc').textContent=d.accounts??0; $('#k-live').textContent=d.live??0;
+  $('#nb-keys').textContent=`${d.in_router??0}/${d.tokens??0}`; renderKeys();
+}
+function renderKeys(){
+  const q=$('#k-q').value.trim().toLowerCase();
+  const rows=keyRows.filter(r=>!q||r.key.toLowerCase().includes(q));
+  $('#k-body').innerHTML=rows.map(r=>`<tr>
+    <td class="mono">${enc(r.key.slice(0,26))}…${enc(r.key.slice(-6))}</td>
+    <td class="mono">${enc(r.tail)}</td>
+    <td>${r.in_router?'<span class="tag on">yes</span>':'<span class="tag warn">no</span>'}</td>
+    <td><button class="btn sm" data-copy="${enc(r.key)}">copy</button></td></tr>`).join('')
+    || '<tr><td colspan="4" class="hint">no keys</td></tr>';
+}
+$('#k-q').oninput=renderKeys; $('#k-refresh').onclick=loadKeys;
+$('#k-missing').onclick=async()=>{
+  const done=busy($('#k-missing'),'checking missing keys'); if(!done) return;
+  try{
+    const r=await api('/api/providers/add_missing',{verify:true,workers:12});
+    if(r.ok){ let m=`added ${r.added}/${r.todo} keys`;
+      if(r.dead) m+=` · dropped ${r.dead} dead`; if(r.exhausted) m+=` · dropped ${r.exhausted} exhausted`;
+      if(r.unknown) m+=` · ${r.unknown} unknown`; if(r.errs&&r.errs.length) m+=` · ${r.errs.length} errors`;
+      toast(m,(r.dead||r.unknown||(r.errs||[]).length)>0&&!r.added);
+    } else toast('error: '+r.msg,true);
+  }catch(e){ toast('server error: '+e.message,true); } finally{ done(); loadKeys(); tick(); }
+};
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-copy]');
+  if(b) navigator.clipboard.writeText(b.dataset.copy).then(()=>toast('copied'),()=>toast('copy failed',true));
+});
+
+let uRows=[],uSeen=0,uFinal=false,uSeq=0,uPollTimer=null;
+function uTag(r){
+  if(r.grp==='exhausted') return '<span class="tag off">exhausted</span>';
+  if(r.grp==='dead') return '<span class="tag off">dead key</span>';
+  if(r.grp==='zero') return '<span class="tag on">unused</span>';
+  if(r.grp==='unknown') return '<span class="tag warn">unknown</span>';
+  return '<span class="tag on">usable</span>';
+}
+function uRowHtml(r,fresh){
+  const p=r.used==null?null:Math.round(r.used);
+  const bar=p==null?`<span class="hint">${r.grp==='dead'?'401/403':'?'}</span>`
+    :`<div class="flex" style="gap:8px;flex-wrap:nowrap"><div class="bar"><i class="${p>=80?'hot':''}" style="width:${Math.max(2,Math.min(100,p))}%"></i></div><span class="mono">${p}%</span></div>`;
+  return `<tr class="${fresh?'new':''}" data-id="${enc(r.id)}">
+    <td>${enc(r.name)}</td><td class="mono">${enc(r.tail)}</td><td>${bar}</td>
+    <td class="mono">${r.req??'-'}</td><td class="mono">${enc(r.reset_h||'')}</td><td>${uTag(r)}</td>
+    <td><button class="btn sm" data-toggle="${enc(r.id)}" data-active="${r.active?1:0}">${r.active?'enabled':'disabled'}</button></td></tr>`;
+}
+function uMatch(r){
+  const q=$('#u-q').value.trim().toLowerCase();
+  if($('#u-only-on').checked&&!r.active) return false;
+  if(!q) return true;
+  return (r.name||'').toLowerCase().includes(q)||(r.tail||'').toLowerCase().includes(q);
+}
+function renderUsage(){
+  const rows=uRows.filter(uMatch);
+  $('#u-body').innerHTML=rows.map(r=>uRowHtml(r,false)).join('')
+    ||`<tr><td colspan="7" class="hint">${uRows.length?'no match':'click "Scan usage"'}</td></tr>`;
+}
+function appendUsage(nr){
+  if(!nr.length) return;
+  uRows.push(...nr);
+  const html=nr.filter(uMatch).map(r=>uRowHtml(r,true)).join('');
+  if(!html) return;
+  const body=$('#u-body'), wrap=body.closest('.tw');
+  const atBottom=!wrap||(wrap.scrollHeight-wrap.scrollTop-wrap.clientHeight<90);
+  if(body.querySelector('.hint')&&uRows.length===nr.length) body.innerHTML='';
+  body.insertAdjacentHTML('beforeend',html);
+  if(wrap&&atBottom) wrap.scrollTop=wrap.scrollHeight;
+}
+function uProgress(d){
+  const wrap=$('#u-prog-wrap'),bar=$('#u-prog'),txt=$('#u-prog-txt');
+  const total=d.total||0;
+  if(d.running){ wrap.classList.remove('hide'); bar.classList.remove('indet');
+    bar.firstElementChild.style.width=(total?pct(d.progress,total):0)+'%';
+    if(!total) bar.classList.add('indet');
+    txt.textContent=`${d.progress}/${total||'?'} key · ${fmtDur(d.now-d.started)}`; return; }
+  if(d.at){ wrap.classList.remove('hide'); bar.classList.remove('indet');
+    bar.firstElementChild.style.width='100%'; txt.textContent=`${d.count} key`; }
+  else if(!d.err) wrap.classList.add('hide');
+}
+function schedulePoll(ms){ clearTimeout(uPollTimer); uPollTimer=setTimeout(pollOnce,Math.max(0,ms)); }
+function resetUsage(){ clearTimeout(uPollTimer); uRows=[]; uSeen=0; uFinal=false; uSeq++; renderUsage(); }
+async function pollOnce(){
+  uPollTimer=null; const token=uSeq; let d;
+  try{ d=await api('/api/usage?since='+uSeen); }catch(e){ schedulePoll(2500); return; }
+  if(token!==uSeq){ schedulePoll(150); return; }
+  appendUsage(d.rows||[]); uSeen=d.count; uProgress(d);
+  const meta=$('#u-meta');
+  if(d.running){ meta.textContent=`scanning ${d.progress}/${d.total||'?'} · ${fmtDur(d.now-d.started)}`;
+    $('#nb-usage').textContent='●'; schedulePoll(700); return; }
+  meta.textContent=d.at?`${d.count} keys · finished in ${fmtDur((d.at-d.started)||0)} · ${new Date(d.at*1000).toLocaleTimeString()}`+(d.err?' · error: '+d.err:'')
+    :(d.err?'error: '+d.err:'not scanned');
+  $('#nb-usage').textContent=d.count?String(d.count):'';
+  if(d.finished&&!uFinal){ uFinal=true; await uFinalize(); }
+}
+async function uFinalize(){
+  const token=uSeq; try{ const d=await api('/api/usage?since=0');
+    if(token!==uSeq) return; uRows=d.rows||[]; uSeen=d.count; uProgress(d); renderUsage(); }catch(e){}
+}
+function loadUsage(){ schedulePoll(0); }
+$('#u-scan').onclick=async()=>{
+  const done=busy($('#u-scan'),'scanning'); if(!done) return;
+  try{ const r=await api('/api/usage/scan',{workers:12,threshold:+$('#u-th').value||100});
+    done();
+    if(!r.ok){ toast(r.msg||'could not start',true); schedulePoll(300); return; }
+    resetUsage(); $('#u-prog-wrap').classList.remove('hide');
+    $('#u-prog').firstElementChild.style.width='0%'; $('#u-prog-txt').textContent='0/? keys · 0s';
+    schedulePoll(0);
+  }catch(e){ toast('server error: '+e.message,true); done(); }
+};
+$('#u-refresh').onclick=()=>{ resetUsage(); schedulePoll(0); };
+$('#u-off').onclick=async()=>{
+  const done=busy($('#u-off'),'disabling'); if(!done) return;
+  try{ const r=await api('/api/providers/disable_exhausted',{});
+    toast(r.ok?`disabled ${r.n}/${r.total??r.n} exhausted`:'error',!r.ok);
+    if(r.errs&&r.errs.length) toast(`${r.errs.length} errors: ${r.errs.join(', ')}`,true);
+  }catch(e){ toast('server error: '+e.message,true); } finally{ done(); resetUsage(); schedulePoll(0); }
+};
+$('#u-q').oninput=renderUsage; $('#u-only-on').onchange=renderUsage;
+
+document.addEventListener('click',async ev=>{
+  const b=ev.target.closest('[data-toggle]'); if(!b) return;
+  const id=b.dataset.toggle, was=b.dataset.active==='1', row=uRows.find(r=>r.id===id);
+  b.disabled=true;
+  try{ const r=await api('/api/providers/toggle',{id,active:!was});
+    if(!r.ok) throw new Error('server returned false');
+    if(row) row.active=!was; b.dataset.active=(!was)?'1':'0'; b.textContent=(!was)?'enabled':'disabled';
+    toast(!was?'enabled':'disabled'); if(tab==='prov') loadProviders();
+  }catch(e){ b.dataset.active=was?'1':'0'; toast('toggle error: '+e.message,true); }
+  finally{ b.disabled=false; }
+});
+
+async function loadProviders(){
+  let d; try{ d=await api('/api/providers'); }catch(e){ $('#n-meta').textContent='failed to load providers'; return; }
+  if(d.error){ $('#n-meta').textContent='error: '+d.error; return; }
+  $('#n-meta').textContent=`provider ${d.provider} · ${d.active}/${d.total} enabled`;
+  $('#nb-prov').textContent=`${d.active}/${d.total}`;
+  $('#n-body').innerHTML=(d.rows||[]).map(r=>`<tr><td>${enc(r.name)}</td><td class="mono">${enc(r.tail)}</td>
+    <td class="hint">${r.code?`<span class="tag warn">${enc(r.code)}</span> `:''}${enc(r.err||'')}</td>
+    <td>${r.active?'<span class="tag on">enabled</span>':'<span class="tag off">disabled</span>'}</td>
+    <td><div class="flex" style="flex-wrap:nowrap">
+      <button class="btn sm" data-toggle="${enc(r.id)}" data-active="${r.active?1:0}">${r.active?'disable':'enable'}</button>
+      <button class="btn sm bad" data-del="${enc(r.id)}">delete</button></div></td></tr>`).join('')
+    || '<tr><td colspan="5" class="hint">empty</td></tr>';
+}
+$('#n-refresh').onclick=loadProviders;
+document.addEventListener('click',async ev=>{
+  const b=ev.target.closest('[data-del]'); if(!b) return;
+  if(!confirm('Delete this account from the router?')) return;
+  b.disabled=true;
+  try{ const r=await api('/api/providers/delete',{id:b.dataset.del}); toast(r.ok?'deleted':'error',!r.ok); }
+  catch(e){ toast('delete error: '+e.message,true); } finally{ b.disabled=false; loadProviders(); }
+});
+
+$('#b-rr').onclick=async()=>{ const d=busy($('#b-rr'),'enabling'); if(!d)return;
+  try{ const r=await api('/api/pool/rr',{}); toast(r.ok?'✓ '+r.msg:'error: '+r.msg,!r.ok); }
+  catch(e){ toast(e.message,true); } finally{ d(); tickOv(); } };
+$('#n-rr').onclick=async()=>{ const d=busy($('#n-rr'),'enabling'); if(!d)return;
+  try{ const r=await api('/api/pool/rr',{}); toast(r.ok?'✓ '+r.msg:'error: '+r.msg,!r.ok); }
+  catch(e){ toast(e.message,true); } finally{ d(); tickOv(); } };
+$('#b-refresh').onclick=async()=>{ const d=busy($('#b-refresh'),'clearing'); if(!d)return;
+  try{ const r=await api('/api/pool/refresh',{revive:true}); toast(r.ok?'✓ '+r.msg:'error: '+r.msg,!r.ok); }
+  catch(e){ toast(e.message,true); } finally{ d(); tickOv(); } };
+$('#n-refresh-pool').onclick=async()=>{ const d=busy($('#n-refresh-pool'),'clearing'); if(!d)return;
+  try{ const r=await api('/api/pool/refresh',{revive:true}); toast(r.ok?'✓ '+r.msg:'error: '+r.msg,!r.ok); loadProviders(); }
+  catch(e){ toast(e.message,true); } finally{ d(); tickOv(); } };
+$('#b-quota').onclick=async()=>{ const d=busy($('#b-quota'),'scanning quota'); if(!d)return;
+  try{ const r=await api('/api/quota/scan',{}); toast(r.ok?(r.msg||'done'):'error: '+(r.msg||''),!r.ok); }
+  catch(e){ toast('error: '+e.message,true); } finally{ d(); tickOv(); } };
+
+$('#gt-start').onclick=async()=>{ const d=busy($('#gt-start'),'enabling'); if(!d)return;
+  try{ const r=await api('/api/gate/start',{rpm:+$('#gt-rpm').value||0}); toast(r.ok?'✓ '+r.msg:'error: '+r.msg,!r.ok); }
+  catch(e){ toast(e.message,true); } finally{ d(); tickOv(); } };
+$('#gt-stop').onclick=async()=>{ const r=await api('/api/gate/stop',{}).catch(e=>({ok:false,msg:e.message}));
+  toast(r.ok?'✓ '+r.msg:'error: '+r.msg,!r.ok); tickOv(); };
+$('#gt-apply').onclick=async()=>{ const d=busy($('#gt-apply'),'applying'); if(!d)return;
+  try{ const r=await api('/api/gate/rpm',{rpm:+$('#gt-rpm').value||0}); toast(r.ok?'✓ '+r.msg:'error: '+r.msg,!r.ok); }
+  catch(e){ toast(e.message,true); } finally{ d(); tickOv(); } };
+$('#b-rotate').onclick=$('#rt-rotate').onclick=async()=>{
+  const r=await api('/api/gate/rotate',{}).catch(e=>({ok:false,msg:e.message}));
+  toast(r.ok?('✓ '+r.msg+(($('#rt-chip')&&$('#rt-chip').textContent==='running')?'':' (rotator must be on)')):'error: '+r.msg,!r.ok); tickOv(); };
+$('#rt-start').onclick=$('#b-rot-toggle').onclick=async()=>{
+  const isOn=$('#b-rot-toggle').textContent.startsWith('Stop');
+  const r=await api(isOn?'/api/vpn/stop':'/api/vpn/start',{}).catch(e=>({ok:false,msg:e.message}));
+  toast(r.ok?'✓ '+r.msg:'error: '+r.msg,!r.ok); tickOv(); };
+$('#rt-stop').onclick=async()=>{ const d=busy($('#rt-stop'),'stopping'); if(!d)return;
+  try{ const r=await api('/api/vpn/stop',{}); toast(r.ok?'✓ '+r.msg:'error: '+r.msg,!r.ok); }
+  catch(e){ toast(e.message,true); } finally{ d(); tickOv(); } };
+
+tick(); setInterval(tick,2000);
+tickOv(); setInterval(tickOv,3000);
+loadKeys();
+const fh=$('#foot-host'); if(fh) fh.textContent=location.host||'localhost';
+</script>
+</body>
+</html>

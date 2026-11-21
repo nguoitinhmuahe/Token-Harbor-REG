@@ -169,11 +169,11 @@ class _Progress:
         rate = self.done / el * 3600.0 if el > 0 and self.done else 0.0
         _ORIG_PRINT("")
         _ORIG_PRINT("=" * 58)
-        _ORIG_PRINT(f"  XONG  ok {self.ok} | fail {self.fail} | "
-                    f"tổng {self.done}/{self.total}")
-        _ORIG_PRINT(f"  thời gian {self.mmss(el)} | {rate:.1f} acc/h")
+        _ORIG_PRINT(f"  DONE  ok {self.ok} | fail {self.fail} | "
+                    f"total {self.done}/{self.total}")
+        _ORIG_PRINT(f"  elapsed {self.mmss(el)} | {rate:.1f} acc/h")
         if self.reasons:
-            _ORIG_PRINT("  lý do fail:")
+            _ORIG_PRINT("  fail reasons:")
             for k, v in sorted(self.reasons.items(), key=lambda x: -x[1]):
                 _ORIG_PRINT(f"    {v:>3}  {k}")
         _ORIG_PRINT("=" * 58)
@@ -181,10 +181,10 @@ class _Progress:
 
 _NOISE_SUB = (
     "[CF]", "[TIME]", "[FORM]", "[SIGNUP] POST", "resend #",
-    "[MAIL] ", "fetching", "bấm '+ New key'", "nhập tên ok",
-    "bấm 'Create key'", "chưa thấy key", "Enter (fallback)",
-    "mở trang keys lỗi", "chat test...",
-    "[CHECK] ", "[VERIFY] ", "browser mở", " = thk_",
+    "[MAIL] ", "fetching", "click '+ New key'", "enter name ok",
+    "click 'Create key'", "no key yet", "Enter (fallback)",
+    "open keys page error", "chat test...",
+    "[CHECK] ", "[VERIFY] ", "browser opened", " = thk_",
 )
 
 
@@ -193,7 +193,7 @@ def print(*args, **kwargs):
     if not VERBOSE:
         if any(s in msg for s in _NOISE_SUB):
             return
-        if msg.startswith("[REG]") and msg.endswith("xong"):
+        if msg.startswith("[REG]") and msg.endswith("done"):
             return
     if UI is not None and UI.live:
         UI.event(msg)
@@ -361,7 +361,7 @@ async def _wait_cf_clear(page, rand_name, timeout: float = 60.0) -> str:
                 await page.wait_for_timeout(600)
         if not reloaded and now > end - timeout + 20:
             reloaded = True
-            print(f"[CF] {rand_name} kẹt 20s -> reload")
+            print(f"[CF] {rand_name} stuck 20s -> reload")
             try:
                 await page.reload(wait_until="domcontentloaded", timeout=20000)
                 await page.wait_for_timeout(1200)
@@ -394,14 +394,14 @@ async def _fill_form(page, email, password) -> bool:
             el = boxes.nth(i)
             try:
                 if await el.is_checked():
-                    ticked = f"#{i} đã tick"
+                    ticked = f"#{i} already ticked"
                     break
                 await el.check(timeout=3000, force=True)
-                ticked = f"#{i} vừa tick"
+                ticked = f"#{i} just ticked"
                 break
             except Exception as e:
                 print(f"[FORM] tick #{i} fail: {type(e).__name__}: {str(e)[:80]}")
-        print(f"[FORM] consent: {ticked or 'KHÔNG tick được'}")
+        print(f"[FORM] consent: {ticked or 'could not tick'}")
         return True
     except Exception:
         return False
@@ -414,11 +414,11 @@ async def _click_create(page) -> bool:
             await loc.first.click(timeout=5000)
             return True
     except Exception as e:
-        print(f"[SIGNUP] click create lỗi: {type(e).__name__}: {str(e)[:60]}")
+        print(f"[SIGNUP] click create error: {type(e).__name__}: {str(e)[:60]}")
     try:
         return bool(await page.evaluate(CREATE_JS, CREATE_BTN_TEXT))
     except Exception as e:
-        print(f"[SIGNUP] js create lỗi: {type(e).__name__}")
+        print(f"[SIGNUP] js create error: {type(e).__name__}")
         return False
 
 
@@ -460,13 +460,13 @@ async def _load_signup(page, rand_name) -> bool:
         last_click = 0.0
         while time.monotonic() < end:
             if await page.query_selector(SEL_EMAIL):
-                print(f"[CF] {rand_name} form hiện sau {int(35-(end-time.monotonic()))}s")
+                print(f"[CF] {rand_name} form shown after {int(35-(end-time.monotonic()))}s")
                 return True
 
             now = time.monotonic()
             if await _is_cf_interstitial(page):
                 if clicked == 0:
-                    print(f"[CF] {rand_name} dính CF, click Turnstile...")
+                    print(f"[CF] {rand_name} stuck on CF, click Turnstile...")
                 if now - last_click > 4:
                     last_click = now
                     if await _click_turnstile(page):
@@ -481,7 +481,7 @@ async def _load_signup(page, rand_name) -> bool:
                 except Exception:
                     blen = -1
                 if 0 <= blen < 40 and now - (end - 35) > 3:
-                    print(f"[SIGNUP] {rand_name} trang trắng/không phải CF (len={blen}) -> thử lại")
+                    print(f"[SIGNUP] {rand_name} blank page/not CF (len={blen}) -> retry")
                     break
             await page.wait_for_timeout(400)
 
@@ -493,9 +493,9 @@ async def _load_signup(page, rand_name) -> bool:
                 head: (document.body ? document.body.innerText : '').slice(0,150),
                 cf: !!document.querySelector('iframe[src*="challenges.cloudflare.com"]')
             })""")
-            print(f"[CF] {rand_name} try{attempt+1} thất bại: {info}")
+            print(f"[CF] {rand_name} try{attempt+1} failed: {info}")
         except Exception as e:
-            print(f"[CF] {rand_name} try{attempt+1}: eval lỗi {type(e).__name__}")
+            print(f"[CF] {rand_name} try{attempt+1}: eval error {type(e).__name__}")
 
         await _clear_browsing(page)
         await page.wait_for_timeout(500)
@@ -613,7 +613,7 @@ async def _signup(page, rand_name, email, password, timeout: float = 60.0) -> st
     page.on("response", _on_resp)
 
     cf = await _wait_cf_clear(page, rand_name, 25)
-    print(f"[CF] {rand_name} trước fill: {cf}")
+    print(f"[CF] {rand_name} before fill: {cf}")
     if cf == "timeout":
         return "cf_timeout"
 
@@ -629,7 +629,7 @@ async def _signup(page, rand_name, email, password, timeout: float = 60.0) -> st
         if not await _fill_form(page, email, password):
             return "signup_failed"
         if not await _click_create(page):
-            print(f"[SIGNUP] {rand_name} không click được Create, thử lại")
+            print(f"[SIGNUP] {rand_name} could not click Create, retry")
             continue
         print(f"[SIGNUP] {rand_name} submit #{attempt}")
 
@@ -645,7 +645,7 @@ async def _signup(page, rand_name, email, password, timeout: float = 60.0) -> st
                     cf_retry += 1
                     if cf_retry > 1:
                         return "cf_blocked"
-                    print(f"[CF] {rand_name} 429 -> thu qua challenge, giu IP")
+                    print(f"[CF] {rand_name} 429 -> pass challenge, keep IP")
                     try:
                         await page.reload(wait_until="domcontentloaded",
                                           timeout=20000)
@@ -689,12 +689,12 @@ async def _signup(page, rand_name, email, password, timeout: float = 60.0) -> st
             if info.get("err"):
                 return "captcha_missing"
             if await _solve_turnstile(page, rand_name, 30):
-                print(f"[CF] {rand_name} có token -> submit lại")
+                print(f"[CF] {rand_name} has token -> resubmit")
                 continue
             if reloads >= 2:
                 return "captcha_missing"
             reloads += 1
-            print(f"[SIGNUP] {rand_name} reload lấy token mới (#{reloads})")
+            print(f"[SIGNUP] {rand_name} reload to get new token (#{reloads})")
             try:
                 await page.reload(wait_until="domcontentloaded", timeout=20000)
                 await page.wait_for_timeout(1200)
@@ -704,7 +704,7 @@ async def _signup(page, rand_name, email, password, timeout: float = 60.0) -> st
             continue
         if post_err:
             return post_err
-        print(f"[SIGNUP] {rand_name} submit #{attempt} chưa xong | "
+        print(f"[SIGNUP] {rand_name} submit #{attempt} not done yet | "
               f"txt={txt[:120]!r}")
 
     return "signup_failed"
@@ -787,13 +787,13 @@ async def _create_key(page, rand_name):
                     page.goto(KEYS_URL, wait_until="domcontentloaded", timeout=20000),
                     timeout=25)
             except Exception as e:
-                print(f"[KEY] {rand_name} mở trang keys lỗi: {type(e).__name__}")
+                print(f"[KEY] {rand_name} open keys page error: {type(e).__name__}")
                 continue
             await page.wait_for_timeout(1200)
 
             new_btn = page.locator("button", has_text="New key")
             if not await new_btn.count():
-                print(f"[KEY] {rand_name} KHÔNG thấy nút 'New key'")
+                print(f"[KEY] {rand_name} no 'New key' button found")
                 try:
                     btns = await page.evaluate(
                         "() => [...document.querySelectorAll('button')]"
@@ -804,7 +804,7 @@ async def _create_key(page, rand_name):
                 await page.wait_for_timeout(1000)
                 continue
             await _click_el(new_btn.first)
-            print(f"[KEY] {rand_name} bấm '+ New key'")
+            print(f"[KEY] {rand_name} click '+ New key'")
 
             inp = page.locator('input[type="text"]')
             field = None
@@ -822,7 +822,7 @@ async def _create_key(page, rand_name):
                 if field is not None:
                     break
             if field is None:
-                print(f"[KEY] {rand_name} KHÔNG thấy input nhập tên")
+                print(f"[KEY] {rand_name} no name input found")
                 try:
                     info = await page.evaluate(
                         "() => ({inputs: [...document.querySelectorAll('input')]"
@@ -852,7 +852,7 @@ async def _create_key(page, rand_name):
                     await field.fill(rand_name)
             except Exception:
                 pass
-            print(f"[KEY] {rand_name} nhập tên ok")
+            print(f"[KEY] {rand_name} enter name ok")
 
             scope = page
             try:
@@ -882,9 +882,9 @@ async def _create_key(page, rand_name):
                     except Exception:
                         continue
                 await _click_el(target)
-                print(f"[KEY] {rand_name} bấm 'Create key'")
+                print(f"[KEY] {rand_name} click 'Create key'")
             else:
-                print(f"[KEY] {rand_name} KHÔNG thấy nút 'Create key'")
+                print(f"[KEY] {rand_name} no 'Create key' button found")
                 try:
                     info = await page.evaluate(
                         "() => ({val: (document.querySelector('input[type=text]')||{}).value, "
@@ -911,7 +911,7 @@ async def _create_key(page, rand_name):
                     except Exception:
                         pass
             if "data" in captured:
-                print(f"[KEY] {rand_name} tạo key qua UI "
+                print(f"[KEY] {rand_name} created key via UI "
                       f"{int((time.monotonic()-t0)*1000)}ms")
                 return captured["data"]
 
@@ -920,11 +920,11 @@ async def _create_key(page, rand_name):
                     "() => document.body ? document.body.innerText : ''")
                 m = KEY_RE.search(txt or "")
                 if m:
-                    print(f"[KEY] {rand_name} lấy key từ text trang")
+                    print(f"[KEY] {rand_name} got key from page text")
                     return {"plaintext": m.group(0)}
             except Exception:
                 pass
-            print(f"[KEY] {rand_name} chưa thấy key, thử lại")
+            print(f"[KEY] {rand_name} no key yet, retry")
     finally:
         try:
             page.remove_listener("response", on_resp)
@@ -970,7 +970,7 @@ async def register_one(conn, semaphore):
                 idle = time.monotonic() - st["last"]
                 if idle > ACC_TIMEOUT:
                     print(f"[WATCHDOG] {rand_name} idle {int(idle)}s > "
-                          f"{ACC_TIMEOUT}s -> đóng browser")
+                          f"{ACC_TIMEOUT}s -> close browser")
                     for key in ("context", "browser"):
                         obj = st.get(key)
                         if obj is not None:
@@ -994,7 +994,7 @@ async def register_one(conn, semaphore):
                 await _strip_cf_csp(context)
                 page = await context.new_page()
                 _tick()
-                print(f"[REG] {rand_name} browser mở")
+                print(f"[REG] {rand_name} browser opened")
 
             t0 = time.monotonic()
             try:
@@ -1061,7 +1061,7 @@ async def register_one(conn, semaphore):
                     except Exception:
                         delay = min(delay * 1.5, 3.0)
                     if verify_link:
-                        print(f"[MAIL] {rand_name} có link sau "
+                        print(f"[MAIL] {rand_name} got link after "
                               f"{int(time.monotonic()-t0)}s")
                         break
                     if i in (2, 6, 12):
@@ -1119,7 +1119,7 @@ async def register_one(conn, semaphore):
                             else:
                                 reason = f"key_error: {data.get('error', 'no plaintext')}"
                     except asyncio.TimeoutError:
-                        print(f"[VERIFY] {rand_name} timeout bước verify/key")
+                        print(f"[VERIFY] {rand_name} timeout at verify/key step")
                         reason = "verify_timeout"
                     except Exception as e:
                         reason = f"verify_failed: {e}"
@@ -1165,21 +1165,21 @@ async def register_one(conn, semaphore):
                         await asyncio.wait_for(browser.close(), timeout=15)
                     except Exception:
                         pass
-            print(f"[REG] {rand_name} xong")
+            print(f"[REG] {rand_name} done")
 
         return status
 
 
 async def _switch_region(region: str, force: bool = False) -> bool:
     if force:
-        print(f"[VPN] reconnect {region} để lấy IP mới")
+        print(f"[VPN] reconnect {region} to get new IP")
         try:
             await asyncio.to_thread(vpn.disconnect)
             await asyncio.sleep(1.0)
         except Exception:
             pass
     else:
-        print(f"[VPN] đổi region -> {region}")
+        print(f"[VPN] switch region -> {region}")
     ok = await asyncio.to_thread(vpn.connect, region)
     if not ok:
         print(f"[VPN] connect {region} FAIL")
@@ -1190,18 +1190,18 @@ async def _switch_region(region: str, force: bool = False) -> bool:
             await asyncio.to_thread(socket.gethostbyname, BASE_HOST)
             ip = await asyncio.to_thread(vpn.current_ip)
             if ip:
-                print(f"[VPN] {region} sẵn sàng ip={ip}")
+                print(f"[VPN] {region} ready ip={ip}")
                 return True
         except Exception:
             pass
-    print(f"[VPN] {region} KHÔNG ổn định sau 30s")
+    print(f"[VPN] {region} not stable after 30s")
     return False
 
 
 async def main():
     global UI
     if not reset_outputs():
-        print("[START] không xoá được tokens.txt/accounts.txt (đang bị giữ?) -> dừng")
+        print("[START] could not delete tokens.txt/accounts.txt (in use?) -> stop")
         return
 
     conn = init_db()
@@ -1237,7 +1237,7 @@ async def main():
         while slots and attempts < max_attempts:
             iterations += 1
             if iterations > max_iter:
-                print(f"[VPN] quá {max_iter} vòng -> dừng")
+                print(f"[VPN] exceeded {max_iter} loops -> stop")
                 break
             force = False
             if pending_region:
@@ -1253,16 +1253,16 @@ async def main():
                         break
                 if region is None:
                     if attempts < max_attempts:
-                        print("[VPN] hết region dùng được -> thử lại vòng mới")
+                        print("[VPN] no usable regions left -> retry new round")
                         bad_regions.clear()
                         continue
-                    print("[VPN] hết region dùng được -> dừng")
+                    print("[VPN] no usable regions left -> stop")
                     break
             if not await _switch_region(region, force=force):
                 dead_fail[region] = dead_fail.get(region, 0) + 1
                 if dead_fail[region] >= 2:
                     bad_regions.add(region)
-                    print(f"[VPN] {region} không connect được -> bỏ")
+                    print(f"[VPN] {region} cannot connect -> drop")
                 continue
             dead_fail.pop(region, None)
             vpn_state["region"] = region
@@ -1279,7 +1279,7 @@ async def main():
             sf_bad = 0
             for r, tries in zip(results, jobs):
                 if isinstance(r, BaseException):
-                    print(f"[REG] task lỗi: {type(r).__name__}: {r}")
+                    print(f"[REG] task error: {type(r).__name__}: {r}")
                     code = "error"
                 else:
                     code = r.split(":")[0].strip() if isinstance(r, str) else ""
@@ -1297,19 +1297,19 @@ async def main():
                         UI.requeue(code)
             if region_dead:
                 bad_regions.add(region)
-                print(f"[VPN] {region} bị chặn IP -> bỏ region")
+                print(f"[VPN] {region} IP blocked -> drop region")
             elif ip_bad or sf_bad >= 2:
                 rotate[region] = rotate.get(region, 0) + 1
                 if rotate[region] <= MAX_IP_ROTATE:
-                    print(f"[VPN] {region}: {ip_bad} chặn IP + {sf_bad} signup fail"
-                          f" -> reconnect lấy IP mới "
+                    print(f"[VPN] {region}: {ip_bad} IP blocked + {sf_bad} signup fail"
+                          f" -> reconnect to get new IP "
                           f"({rotate[region]}/{MAX_IP_ROTATE})")
                     pending_region = region
                 else:
                     bad_regions.add(region)
-                    print(f"[VPN] {region} đổi {MAX_IP_ROTATE} IP vẫn lỗi -> bỏ")
-            print(f"[BATCH] còn {len(slots)}/{TOTAL_ACCOUNTS} "
-                  f"(region {region}, lần thử {attempts})")
+                    print(f"[VPN] {region} changed {MAX_IP_ROTATE} IPs still failing -> drop")
+            print(f"[BATCH] left {len(slots)}/{TOTAL_ACCOUNTS} "
+                  f"(region {region}, attempt {attempts})")
     finally:
         if ticker is not None:
             ticker.cancel()
@@ -1336,7 +1336,7 @@ def _ask_choice(prompt, options, default):
         mark = " (default)" if _val == default else ""
         print(f"  {i}. {label}{mark}")
     try:
-        v = input("chọn: ").strip()
+        v = input("choose: ").strip()
         if not v:
             return default
         idx = int(v)
@@ -1351,14 +1351,14 @@ def _interactive_setup():
     print("=" * 46)
     print("  TOKENHARBOR REG")
     print("=" * 46)
-    count = _ask_int("Số account", TOTAL_ACCOUNTS)
-    concurrent = _ask_int("Số task song song", CONCURRENT_TASKS)
-    per_ip = _ask_int("Số acc dùng chung 1 region", ACCS_PER_IP)
+    count = _ask_int("Number of accounts", TOTAL_ACCOUNTS)
+    concurrent = _ask_int("Concurrent tasks", CONCURRENT_TASKS)
+    per_ip = _ask_int("Accounts sharing 1 region", ACCS_PER_IP)
     if per_ip < 1:
         per_ip = 1
-    hl = _ask_choice("Trình duyệt:", [
-        ("hiện cửa sổ (headed)", "false"),
-        ("ẩn (headless)", "true"),
+    hl = _ask_choice("Browser:", [
+        ("show window (headed)", "false"),
+        ("hidden (headless)", "true"),
     ], "true" if HEADLESS else "false")
     print("=" * 46)
     return count, concurrent, per_ip, hl == "true"
@@ -1380,7 +1380,7 @@ def _apply_env():
     if e.get("REG_PER_IP"):
         per_ip = int(e["REG_PER_IP"])
         if per_ip < 1:
-            raise SystemExit(f"REG_PER_IP={per_ip} không hợp lệ (phải >= 1)")
+            raise SystemExit(f"REG_PER_IP={per_ip} invalid (must be >= 1)")
         ACCS_PER_IP = per_ip
 
 

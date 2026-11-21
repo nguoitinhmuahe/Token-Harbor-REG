@@ -135,8 +135,8 @@ async def browser_session(headless: bool = True, prefs: dict | None = None,
                 await pw.stop()
             return
     elif meta:
-        print(f"[fastfox] server headless={meta['headless']} != yêu cầu {headless}; "
-              f"launch trực tiếp")
+        print(f"[fastfox] server headless={meta['headless']} != requested {headless}; "
+              f"launch directly")
 
     async with fast_browser(headless=headless, prefs=prefs, **overrides) as browser:
         yield browser
