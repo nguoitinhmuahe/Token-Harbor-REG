@@ -1529,7 +1529,7 @@ class Gate(BaseHTTPRequestHandler):
             if body:
                 req.add_header("Content-Length", str(len(body)))
             try:
-                with urllib.request.urlopen(req, timeout=UP_TIMEOUT) as r:
+                with urllib.request.urlopen(req, timeout=min(20.0, UP_TIMEOUT)) as r:
                     code, hdrs, payload = r.status, r.headers, r
                     if code < 400 or attempt > RETRY:
                         with _lock:
@@ -1651,14 +1651,21 @@ class Gate(BaseHTTPRequestHandler):
         req = urllib.request.Request(UP + up_path,
                                      data=payload if payload else None,
                                      method=method)
+        has_auth = False
         for k, v in self.headers.items():
-            if k.lower() in HOP:
+            lk = k.lower()
+            if lk in HOP:
+                continue
+            if lk == "authorization":
+                has_auth = True
+            if lk == "x-api-key" and not has_auth:
+                req.add_header("Authorization", "Bearer " + v)
                 continue
             req.add_header(k, v)
         if body:
-            req.add_header("Content-Length", str(len(body)))
+            req.add_header("Content-Length", str(len(payload)))
         try:
-            with urllib.request.urlopen(req, timeout=UP_TIMEOUT) as r:
+            with urllib.request.urlopen(req, timeout=min(20.0, UP_TIMEOUT)) as r:
                 if r.status >= 400:
                     return False
                 self._stream(r.status, r.headers, r)
