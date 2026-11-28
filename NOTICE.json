@@ -1,0 +1,128 @@
+{
+  "discord": "https://discord.gg/UcErjAJMVn",
+  "welcome": "Thanks for running Token Harbor. If you would like to chat, share setups or get help, our Discord is open and everyone is welcome.",
+  "changes": {
+    "1.7.9": [
+      "A request now waits up to 180 seconds for a key instead of 90. When many keys are inside their rate-limit window at once, 90 seconds was not always enough to reach one that is free, and the request gave up with an empty reply - which ends the agent's turn. Waiting longer to get a real answer is better than a fast empty one.",
+      "This is the remaining known cause of an empty reply: a long burst of rate limits. It is a trade-off, not a bug - the request holds on instead of failing."
+    ],
+    "1.7.8": [
+      "Empty replies from a backend restart are gone. When both gateway backends were briefly down (a supervisor restart), the front door answered 'no backend' with an empty 200 immediately, and the agent read that as a finished turn - five turns ended that way in one window. The front door now waits up to 25 seconds (FRONT_BACKEND_WAIT) for a backend to come back before replying.",
+      "The supervisor's hang timeout was raised from 30 to 90 seconds (GUARD_KILL_AFTER). A request may legitimately take up to 90 seconds now (it waits for a key instead of failing), and 30 seconds was short enough that a busy backend could be killed and restarted - which is what made both backends go down at once."
+    ],
+    "1.7.7": [
+      "The oversized-request fix actually works now. The upstream answers a too-large request with a plain 400 (not 413), and its wording varies, so the previous version did not recognise it and gave up with an empty reply. Now any 400 or 413 triggers the shrink-and-retry.",
+      "The shrink was also changed to trim the CONTENT of each message rather than dropping whole messages. Dropping messages breaks the tool-call history and the model then answers 400 again; trimming content keeps every message and the tool-call structure intact, so the retry succeeds. Verified: a 3.4 MB request with 82 messages (40 large tool outputs) is trimmed to under 700 KB and answered normally, where before it ended as an empty reply.",
+      "The upstream error body is now included in the log line, so a future unrecognised rejection can be diagnosed instead of guessed at."
+    ],
+    "1.7.6": [
+      "The real reason a chat would stop on its own was found: the request was too large. When the conversation grows past roughly 1.3 MB (a long agent session with big file reads and tool output), the upstream answers 413 Payload Too Large, and because an error is never returned to the client, that became an empty reply - which the agent reads as a finished turn. Now a 413 (or a 400 that mentions context/length/payload) makes the gateway drop the oldest messages, keeping the system prompt and the most recent ones, aiming for under 700 KB, and retry. The log records it as 'cat history keep=N (a->b byte)'.",
+      "It helps but is not a complete fix: if trimming still leaves the request too big, or the trimmed history is rejected, that turn can still end with an empty reply. The durable answer is to keep sessions shorter (start a new one, or compact) so the context stays small."
+    ],
+    "1.7.5": [
+      "A request now waits for a key instead of giving up early. Two settings were too impatient: a request stopped trying after 40 keys, and when the pool was momentarily dry it only waited 4 seconds before answering. Because an error is never returned to the client, that fallback is an empty reply - and an empty assistant message makes an agent client (opencode) treat the turn as finished and stop silently. Measured: keys rate-limit individually (10 different keys fired at once gave 4 ok, 3 rate-limited, 3 refused), so waiting for the windows to expire and trying again is what actually works. A request now keeps trying (150 keys) for up to 90 seconds, and when the pool is dry it polls for up to 45 seconds for a key to free instead of replying empty.",
+      "Note: if the model itself rejects a request as invalid, every key returns 400 and there is nothing to retry; that case still ends as an empty reply. It is logged as 'upstream 400'."
+    ],
+    "1.7.4": [
+      "A request now tries more keys before giving up (40 instead of 20, still bounded by the same overall deadline). Since errors are no longer returned to the client, the fallback is an empty reply, which is worse than waiting a little longer for a real one - so it keeps trying."
+    ],
+    "1.7.3": [
+      "The gateway never returns an error to the client any more. An agent client (opencode and similar) cancels the whole loop as soon as it receives an error status, so a rate limit, an exhausted key pool, a blocked region or an upstream refusal would end the session. Every such case is now swallowed and answered with a valid 200: the same response shape the client asked for (OpenAI chat completion or Anthropic message), streamed as SSE when the request was streamed, with empty content. So the client sees a normal, empty reply and keeps going instead of stopping.",
+      "This covers both API shapes and both gateway paths: the key-pool path (rate limits, no plan, out of keys, exhausted pool, blocked region) and the router path (throttled, global cooldown, upstream refused or unreachable). The front door does the same when neither backend answers, instead of returning a 502.",
+      "Upstream errors are still fully logged, and a soft_error counter is exposed in /gate/stats so you can see how often it happens."
+    ],
+    "1.7.2": [
+      "The stack now starts at logon with no window at all. The Startup entry is a VBS script that launches the supervisor through pythonw with window style 0, instead of a .cmd that flashed a console window. The supervisor already starts the panel and the gateway as detached processes, so nothing shows a window at logon.",
+      "To refresh it on an existing install, run install_autostart.bat again (it copies guard_hidden.vbs into the Startup folder and removes the old .cmd)."
+    ],
+    "1.7.1": [
+      "The fallback region list used when the VPN daemon cannot be read is now US. It used to list Vietnam, Singapore, Hong Kong and similar, which tokenharbor blocks outright (403 \"API access from your region is not available\"), so a daemon hiccup would send every registration into regions where nothing can succeed."
+    ],
+    "1.7.0": [
+      "Registration is now much harder to tell apart from a person. The browser runs with humanize enabled, so the cursor travels along a curve and keys are pressed with a human cadence, instead of the mouse jumping straight to a coordinate and text being set instantly.",
+      "The signup form is typed character by character with a random per-key delay, and a short random pause runs before the consent box is ticked, so the rhythm is not machine-perfect. Typing falls back to the instant method only if character typing is not available.",
+      "Every account now gets its own random password. Accounts sharing one password is a correlation signal a site can use to group them; set REG_PASSWORD to pin one for a run if you need to.",
+      "Each browser context now sets its timezone and locale from the current exit IP. The browser server is launched once and Camoufox derives the timezone from the IP only at launch, so if the VPN connected after that, or changed region since, the context timezone no longer matched the real IP - an obvious tell. If the IP cannot be read, nothing is set rather than something wrong.",
+      "Housekeeping: the debug dumps are now trimmed by modification time instead of by filename, so the newest dumps are kept rather than deleted."
+    ],
+    "1.6.2": [
+      "Requests are now fast and no longer stall. Three root causes were fixed. (1) A 403 that actually means \"API access from your region is not available\" was mistaken for a dead key: it parked hundreds of keys for up to 12 hours, which is what drained the pool and made a single request take minutes. A region block now only asks for a new IP and never parks a key. (2) A 429 no longer asks the IP rotator to change IP in the middle of a request - rotating killed every in-flight connection and produced storms of network errors. A 429 is per account, so changing IP never helped. (3) When every key is briefly busy the gateway now waits a couple of seconds and answers, instead of sleeping up to 60 seconds waiting for a parked key.",
+      "A key already known to be flagged is skipped immediately instead of being discovered one 403 at a time, and up to 6 keys are opened in parallel to get past a burst of rate limits, so a rate-limited moment is answered in one round-trip instead of twenty sequential tries.",
+      "A kept-alive connection is dropped when the IP is changing, so a stale socket is never reused."
+    ],
+    "1.6.1": [
+      "The pool now reuses one keep-alive TLS connection per worker instead of opening a new one for every key it tries. A request that has to skip past a few rate-limited or refused keys no longer pays a full TLS handshake each time, so it answers in about a third of the time it used to.",
+      "The key pool executor is shared and long-lived, and a failed try closes cleanly before the next one."
+    ],
+    "1.6.0": [
+      "The gateway now serves Anthropic /v1/messages itself: it translates the request (system, messages, images, tools, tool_choice) to the OpenAI format, sends it through the key pool, and translates the answer back - text, tool_use, tool_result and SSE streaming included. So a client that speaks Anthropic no longer needs the router, and does not hit the free plan's 402 on /v1/messages.",
+      "Because the pool is only ever asked for /v1/chat/completions, all pool keys are usable for both API shapes."
+    ],
+    "1.5.2": [
+      "Autostart: install_autostart.bat drops a launcher in your Startup folder (no admin) so the guard - and through it the panel and gateway - come back at every logon. Remove it with install_autostart.bat remove.",
+      "The guard now takes an exclusive lock (SO_EXCLUSIVEADDRUSE on Windows). SO_REUSEADDR let two guards bind the same port, so duplicates could pile up.",
+      "guard.bat starts the guard with pythonw so it has no console window."
+    ],
+    "1.5.1": [
+      "GET /v1/models is answered locally and instantly, so a client (opencode et al) does not hang for minutes on startup waiting for the upstream to list models."
+    ],
+    "1.5.0": [
+      "Fixed the pool choking: accounts flagged for content policy (403 'model paused for this account until ...') are now removed from the pool for good instead of being retried, and prune_scan.py sweeps every key once to clean the existing ones.",
+      "The pool now hedges: it fires GATE_HEDGE keys at once and streams whichever answers first, so a dead or rate-limited key no longer costs a full round trip. A global cap (GATE_POOL_MAX_CONC) keeps the number of simultaneous upstream connections low enough that the network does not start resetting them.",
+      "A transient network error is retried once on the same key before moving on, so a flaky connection does not burn keys.",
+      "The dead-key park is 12h and the pool tries up to 20 keys per request."
+    ],
+    "1.4.9": [
+      "Split Tunnel helper (split_tunnel.py + split_tunnel.bat): ExpressVPN only offers a bypass list, so the machine keeps working directly and the gateway + reg (python / camoufox) stay on the VPN. Needs one admin run (the VPN CLI requires root).",
+      "A dead key (401/403) is now parked for 12 hours instead of 1, so dead keys stop coming back every hour and wasting attempts.",
+      "The key pool now tries up to 20 keys per request instead of 12, so a run of dead or rate-limited keys is less likely to end in a 503."
+    ],
+    "1.4.8": [
+      "The mid-stream stall cutoff is now off by default (FRONT_IDLE=0). The backend already ends a request at its own MAXWAIT, so a model that is just slow to emit its next token is no longer cut off early; set FRONT_IDLE to a number of seconds to re-enable it.",
+      "A cut stream is still terminated cleanly and the connection closed."
+    ],
+    "1.4.7": [
+      "New safety layer: guard.py, a detached supervisor that keeps the panel and the gateway alive on its own, so no web.bat window has to stay open. It is started by web.bat and by the panel, and web.bat no longer kills it.",
+      "Opening web.bat while the panel is already running now just opens it instead of killing and restarting it.",
+      "The supervisor only restarts something that is really down or has been unresponsive for GUARD_KILL_AFTER seconds, so a service that is still starting is left alone.",
+      "Each backend keeps its own key-park file, so the idle one no longer clobbers the busy one's parks."
+    ],
+    "1.4.6": [
+      "A stream that goes quiet mid-answer is now cut after FRONT_IDLE seconds (default 150) instead of holding the client until the full backend timeout, and the body is terminated cleanly so the client finishes right away. Bytes flowing reset the timer, so normal streams are unaffected.",
+      "A cut stream is closed (Connection: close) so clients that wait for the socket, not just the chunk terminator, do not hang."
+    ],
+    "1.4.5": [
+      "Each backend keeps its own key-park file (.gate_keypark_<port>.json). With two backends sharing one file, the idle one overwrote the busy one's park map, so dead keys were retried again and again."
+    ],
+    "1.4.4": [
+      "A cut stream is now logged with the phase it died in (connect / getresponse / stream) plus the method and path, so a timeout can be told apart from a backend that closed."
+    ],
+    "1.4.3": [
+      "Fixed a stale IP-rotation flag that could park every request: if the rotator is killed mid-switch it leaves .vpn_switching behind, and the gateway waited for an IP that never came, then answered 503. A flag older than GATE_VPN_SWITCH_STALE (default 180s) is now ignored.",
+      "The rotator clears a leftover .vpn_switching flag at startup, so a kill during a switch cannot strand the gateway on the next run."
+    ],
+    "1.4.2": [
+      "The front door's backend socket timeout is now configurable via FRONT_TIMEOUT and defaults to 600s (was a hard-coded 300s), so a long, quiet generation is no longer cut off mid-stream."
+    ],
+    "1.4.1": [
+      "A chat client cancelling a request is no longer mistaken for a backend failure: client disconnects are tracked separately and can no longer mark a healthy gateway backend unhealthy or trigger a pointless failover.",
+      "The front door now stops quietly when the client has already hung up instead of logging a fake \"backend unreachable\" and answering into a dead socket."
+    ],
+    "1.4.0": [
+      "The gateway is now a front door plus two backends: clients keep talking to :20130 while the two backends live on :20140 and :20141.",
+      "Editing the gateway no longer drops live traffic - run gate_swap.py and the idle backend loads the new code, gets checked, and the front switches to it before the old one stops.",
+      "The front retries the other backend when one is not answering and streams answers through unchanged, so a backend restart is invisible to a chat client.",
+      "New helpers: gate_boot.py (make sure the front and both backends are up, also called from web.bat), gate_swap.py (safe code swap), handover.py (restart the front itself).",
+      "web.bat no longer clears the gateway port or kills gateway processes when it starts, so launching the panel cannot take the gateway down.",
+      "The dashboard watchdog is now port-based: it restarts the gateway whenever :20130 stops answering and writes a timeline to logs/watchdog.log."
+    ],
+    "1.3.0": [
+      "The gateway now keeps its own key pool: it rotates keys itself and parks a key for exactly the window the API reports, instead of waiting on one rate-limited key.",
+      "If the API pauses one model for an account, the gateway retries on a fallback model once and only benches that key briefly - keys are no longer marked dead for it.",
+      "When several keys hit a rate limit inside a single request, the gateway treats it as a network-level throttle and asks the IP rotator for a fresh IP.",
+      "A streaming answer is never restarted mid-way: a dropped stream is logged instead of being silently retried, so replies stop duplicating.",
+      "Model names with a context suffix such as \"model[1m]\" are normalised before they reach the API.",
+      "New restart helper with three fallback paths, and a small stress tool for hammering the gateway the way a chat client does."
+    ]
+  }
+}
