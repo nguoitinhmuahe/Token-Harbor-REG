@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import os
-import socket
 import subprocess
 import sys
 import time
@@ -25,33 +24,33 @@ def up(url: str, timeout: float = 2.0) -> bool:
 
 
 def listening(port: str) -> bool:
-    try:
-        with socket.create_connection(("127.0.0.1", int(port)), timeout=1.5):
-            return True
-    except Exception:
-        return False
+    ps = (f"(Get-NetTCPConnection -State Listen -LocalPort {port} "
+          "-ErrorAction SilentlyContinue | Measure-Object).Count")
+    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                       capture_output=True, text=True, timeout=30)
+    return (r.stdout or "").strip() not in ("", "0")
 
 
 def start(args: list[str], extra_env: dict) -> None:
     env = dict(os.environ)
     env.update(extra_env)
-    flags = (0x00000008 | 0x00000200) if os.name == "nt" else 0
     subprocess.Popen([PY, "-u"] + args, cwd=HERE, env=env,
-                     creationflags=flags,
+                     creationflags=0x00000008 | 0x00000200,
                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                      stdin=subprocess.DEVNULL)
 
 
 def main() -> int:
+    started = []
     for port in BACKENDS:
         if listening(port) and up(f"http://127.0.0.1:{port}/gate/stats"):
             print(f"[boot] backend {port} already up")
             continue
-        start(["gate.py"], {
+        start(["nine_gate.py"], {
             "GATE_PORT": port, "GATE_KEYPOOL": "1", "GATE_POOL_PREFIX": "a",
-            "GATE_POOL_UP": "https://tokenharbor.ai", "GATE_VPN": "1",
-            "GATE_LOG": os.path.join("logs", f"gate_{port}.log")})
-        print(f"[boot] backend {port} starting")
+            "GATE_POOL_UP": "https://tokenharbor.ai", "GATE_POOL_V6": "0",
+            "GATE_VPN": "1", "GATE_LOG": os.path.join("logs", f"gate_{port}.log")})
+        started.append(port)
 
     if not up(f"http://127.0.0.1:{FRONT}/front/state"):
         start(["gate_front.py"], {"FRONT_PORT": FRONT,
