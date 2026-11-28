@@ -63,7 +63,7 @@ KEYPOOL_ON = (os.environ.get("GATE_KEYPOOL") or "0").strip().lower() not in \
     ("0", "false", "no", "off")
 POOL_UP = (os.environ.get("GATE_POOL_UP") or "https://tokenharbor.ai").rstrip("/")
 POOL_PREFIX = (os.environ.get("GATE_POOL_PREFIX") or "a").strip().strip("/")
-POOL_TRIES = max(1, int(os.environ.get("GATE_POOL_TRIES") or 24))
+POOL_TRIES = min(24, max(1, int(os.environ.get("GATE_POOL_TRIES") or 24)))
 POOL_HEDGE = max(1, int(os.environ.get("GATE_HEDGE") or 2))
 POOL_RPM = float(os.environ.get("GATE_POOL_RPM") or 30)
 POOL_BURST = float(os.environ.get("GATE_POOL_BURST") or 6)
@@ -90,7 +90,7 @@ def _tb_wait(max_wait: float = 3.0) -> float:
     return min(need, max_wait)
 POOL_HEDGE_MAX = max(POOL_HEDGE, int(os.environ.get("GATE_HEDGE_MAX") or 6))
 _HEDGE_NOW = POOL_HEDGE
-POOL_MAX_CONC = max(1, int(os.environ.get("GATE_POOL_MAX_CONC") or 8))
+POOL_MAX_CONC = max(12, int(os.environ.get("GATE_POOL_MAX_CONC") or 12))
 POOL_UP_SEM = threading.BoundedSemaphore(POOL_MAX_CONC)
 POOL_EX = cf.ThreadPoolExecutor(max_workers=POOL_MAX_CONC + 4,
                                 thread_name_prefix="pooltry")
@@ -283,7 +283,29 @@ def _conn_v4():
 
 
 def ask_proxy_rotate(min_gap: float = 60.0) -> None:
-    return
+    global _PROXY_ROT_AT
+    now = time.time()
+    with _PROXY_ROT_LOCK:
+        if now - _PROXY_ROT_AT < min_gap:
+            return
+        _PROXY_ROT_AT = now
+
+    def _work():
+        try:
+            import nestproxy
+            d = nestproxy._req("proxy/available")
+            px = (d.get("proxy") or "").strip()
+            if not px:
+                LOG.warn("nestproxy khong tra proxy")
+                return
+            with open(POOL_PROXY_FILE, "w", encoding="utf-8") as f:
+                f.write(px)
+            LOG.warn("pool proxy moi: %s", px)
+        except Exception as e:
+            LOG.warn("khong lay duoc proxy moi: %s %s",
+                     type(e).__name__, str(e)[:90])
+
+    threading.Thread(target=_work, daemon=True).start()
 
 
 def _anth_to_openai(jb):
@@ -602,7 +624,7 @@ def _trim_variants(b2: bytes):
     return out
 
 
-POOL_TIMEOUT = float(os.environ.get("GATE_POOL_TIMEOUT") or 300)
+POOL_TIMEOUT = min(45.0, float(os.environ.get("GATE_POOL_TIMEOUT") or 45))
 POOL_DEAD_PARK = float(os.environ.get("GATE_POOL_DEAD_PARK") or 900)
 POOL_ACCOUNT_PARK = float(os.environ.get("GATE_POOL_ACCOUNT_PARK") or 3600)
 POOL_FALLBACK = (os.environ.get("GATE_POOL_FALLBACK") or "deepseek-v4.1-flash:free").strip()
@@ -1618,10 +1640,16 @@ class Gate(BaseHTTPRequestHandler):
                      type(e).__name__)
             return False
 
-    def _direct_fallback(self, method, path, body, rid, label):
-        up_path = re.sub(r"^/v1/v1(?=/|$)", "/v1", path)
+    def _direct_fallback(self, method, path, body, rid, label, jb=None, an=False):
+        up_path = "/v1/chat/completions" if an else re.sub(r"^/v1/v1(?=/|$)", "/v1", path)
+        payload = body
+        if an:
+            payload = _anth_to_openai(jb)
+            payload["model"] = re.sub(r"\[[^\]]*\]\s*$", "",
+                                       str(payload.get("model") or "").split("/", 1)[-1]).strip()
+            payload = json.dumps(payload, ensure_ascii=False).encode()
         req = urllib.request.Request(UP + up_path,
-                                     data=body if body else None,
+                                     data=payload if payload else None,
                                      method=method)
         for k, v in self.headers.items():
             if k.lower() in HOP:
@@ -1806,13 +1834,13 @@ class Gate(BaseHTTPRequestHandler):
                         LOG.warn("req#%d %s doi network %s (het cooldown)",
                                  rid, label, _net)
                     else:
-                        if self._direct_fallback(method, path, body, rid, label):
+                        if self._direct_fallback(method, path, body, rid, label, jb, is_anth):
                             return
                         self._soft(is_anth, model, want_stream,
                                    "both networks cooling")
                         return
                 if _IP429_UNTIL > time.monotonic() and not inflight:
-                    if self._direct_fallback(method, path, body, rid, label):
+                    if self._direct_fallback(method, path, body, rid, label, jb, is_anth):
                         return
                     self._soft(is_anth, model, want_stream, "network cooling")
                     return
@@ -1847,12 +1875,12 @@ class Gate(BaseHTTPRequestHandler):
                             continue
                         _soon = min(net_cool_left("v6"), net_cool_left("v4"))
                         if _soon:
-                            if self._direct_fallback(method, path, body, rid, label):
+                            if self._direct_fallback(method, path, body, rid, label, jb, is_anth):
                                 return
                             self._soft(is_anth, model, want_stream,
                                        "both networks cooling")
                             return
-                    if self._direct_fallback(method, path, body, rid, label):
+                    if self._direct_fallback(method, path, body, rid, label, jb, is_anth):
                         return
                     if waits % 8 == 0:
                         ask_rotate(45)
@@ -1934,7 +1962,7 @@ class Gate(BaseHTTPRequestHandler):
                                          "(khong park key) -> cool %.0fs (Retry-After)",
                                          rid, label, kid, _net, _cool)
                                 _other = "v4" if _net == "v6" else "v6"
-                                if self._direct_fallback(method, path, body, rid, label):
+                                if self._direct_fallback(method, path, body, rid, label, jb, is_anth):
                                     return
                                 if net_cool_left(_other) <= 0:
                                     _net = _other
@@ -2121,7 +2149,7 @@ class Gate(BaseHTTPRequestHandler):
             return
         with _lock:
             _stats["other"] += 1
-        if self._direct_fallback(method, path, body, rid, label):
+        if self._direct_fallback(method, path, body, rid, label, jb, is_anth):
             return
         LOG.warn("req#%d %s pool het %d luot thu -> 200 rong (nuot loi)",
                  rid, label, POOL_TRIES)
